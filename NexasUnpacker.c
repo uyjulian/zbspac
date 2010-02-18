@@ -1,6 +1,6 @@
 /**
- * @file		NexasPackage.c
- * @brief		Implementation of package manipulations.
+ * @file		NexasUnpacker.c
+ * @brief		Implementation of the unpacker.
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust
  * @date		2010.02
