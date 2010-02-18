@@ -39,7 +39,7 @@ static bool subTreeCreationWorker(const wchar_t* treeName, TreeNode tree[], BitS
 	if (rbyte) {
 		/**
 		 * An '1' means we should recursively generate the subtrees of the
-		 * current node (depth-first traversal indeed).
+		 * current node (preorder traversal indeed).
 		 * "Allocate space" for the current node then recur.
 		 */
 		*subTreeRoot = (*freeSlotIndex)++;

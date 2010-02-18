@@ -205,6 +205,7 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 					L"ERROR: Entry %u: Name: %s, Unable to write file content!",
 						i, wName);
 			cleanupForEntry(wName, wPath, encodedData, decodedData, false);
+			fclose(outFile);
 			return false;
 		}
 		fclose(outFile);
