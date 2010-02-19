@@ -67,11 +67,11 @@ static NexasPackage* openPackage(const wchar_t* packagePath) {
 	memset(package, 0, sizeof(NexasPackage));
 
 	if (!(package->file = _wfopen(packagePath, L"rb"))) {
-		writeLog(LOG_QUIET, L"ERROR: Cannot open the package file: %s.", packagePath);
+		writeLog(LOG_QUIET, L"ERROR: Cannot open the package file.");
 		closePackage(package);
 		return NULL;
 	}
-	writeLog(LOG_VERBOSE, L"Target file Opened.");
+	writeLog(LOG_VERBOSE, L"Package Opened.");
 	return package;
 }
 
@@ -155,11 +155,11 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 
 	for (u32 i = 0; i < count; ++i) {
 		wchar_t* wName = toWCString(indexes[i].name);
-		writeLog(LOG_VERBOSE, L"Entry %u: Name: %s, Offset: %u, ELen: %u, DLen: %u",
+		writeLog(LOG_VERBOSE, L"Entry %u: %s, Offset: %u, ELen: %u, DLen: %u",
 				i, wName, indexes[i].offset, indexes[i].encodedLen,
 				indexes[i].decodedLen);
 		if (fseek(package->file, indexes[i].offset, SEEK_SET) != 0) {
-			writeLog(LOG_QUIET, L"ERROR: Entry %u: Name: %s, Unable to locate data!",
+			writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to locate data!",
 													i, wName);
 			cleanupForEntry(wName, NULL, NULL, NULL, false);
 			return false;
@@ -168,7 +168,7 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		ByteArray* encodedData = newByteArray(indexes[i].encodedLen);
 		ByteArray* decodedData = encodedData;
 		if (fread(baData(encodedData), 1, indexes[i].encodedLen, package->file) != indexes[i].encodedLen) {
-			writeLog(LOG_QUIET, L"ERROR: Entry %u: Name: %s, Unable to read data from package!",
+			writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to read data from package!",
 							i, wName);
 			cleanupForEntry(wName, NULL, encodedData, NULL, false);
 			return false;
@@ -183,7 +183,7 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		if (decodedLen > indexes[i].encodedLen) {
 			decodedData = newByteArray(decodedLen);
 			if (uncompress(baData(decodedData), &decodedLen, baData(encodedData), indexes[i].encodedLen) != Z_OK) {
-				writeLog(LOG_QUIET, L"ERROR: Entry %u: Name: %s, Unable to extract data!",
+				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to extract data!",
 					i, wName);
 				cleanupForEntry(wName, NULL, encodedData, decodedData, false);
 				return false;
@@ -194,7 +194,7 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		FILE* outFile = _wfopen(wPath, L"wb");
 		if (outFile == NULL) {
 			writeLog(LOG_QUIET,
-					L"ERROR: Entry %u: Name: %s, Unable to open output file!",
+					L"ERROR: Entry %u: %s, Unable to open output file!",
 						i, wName);
 			cleanupForEntry(wName, wPath, encodedData, decodedData, false);
 			return false;
@@ -202,14 +202,14 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		if (fwrite(baData(decodedData), 1, indexes[i].decodedLen, outFile)
 				!= indexes[i].decodedLen) {
 			writeLog(LOG_QUIET,
-					L"ERROR: Entry %u: Name: %s, Unable to write file content!",
+					L"ERROR: Entry %u: %s, Unable to write file content!",
 						i, wName);
 			cleanupForEntry(wName, wPath, encodedData, decodedData, false);
 			fclose(outFile);
 			return false;
 		}
 		fclose(outFile);
-		writeLog(LOG_NORMAL, L"Unpacked: Entry %u: Name: %s", i, wName);
+		writeLog(LOG_NORMAL, L"Unpacked: Entry %u: %s", i, wName);
 		cleanupForEntry(wName, wPath, encodedData, decodedData, true);
 	}
 
@@ -220,7 +220,7 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 bool unpackPackage(const wchar_t* packagePath, const wchar_t* targetDir) {
 	wchar_t* aPackagePath = fsAbsolutePath(packagePath);
 	wchar_t* aTargetDir = fsAbsolutePath(targetDir);
-	writeLog(LOG_NORMAL, L"Now Unpacking package: %s", aPackagePath);
+	writeLog(LOG_NORMAL, L"Unpacking package: %s", aPackagePath);
 	writeLog(LOG_NORMAL, L"To Directory: %s", aTargetDir);
 	if (!fsEnsureDirectoryExists(targetDir)) {
 		writeLog(LOG_QUIET, L"ERROR: Target directory does not exist and could not be created.", targetDir);

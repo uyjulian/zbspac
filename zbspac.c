@@ -25,8 +25,7 @@ void init() {
 }
 
 bool processPackCmd(CmdArgs* args) {
-	writeLog(LOG_QUIET, L"Oops! I cannot pack them for you now! Blame my author!");
-	return false;
+	return packPackage(argSourcePath(args), argTargetPath(args));
 }
 
 bool processUnpackCmd(CmdArgs* args) {
@@ -64,7 +63,7 @@ bool processHelpCmd(CmdArgs* args) {
 	writeLog(LOG_NORMAL,L"  a '_' suffix will be appended to avoid name collision.");
 	writeLog(LOG_NORMAL,L"");
 	writeLog(LOG_NORMAL,L"  When packing a new package, subdirectories are ignored,");
-	writeLog(LOG_NORMAL,L"  and the file names should not exceed 64 bytes.");
+	writeLog(LOG_NORMAL,L"  and the file names should not exceed 63 bytes.");
 	return true;
 }
 
