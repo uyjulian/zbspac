@@ -1,24 +1,26 @@
 /**
  * @file		MinHeap.c
- * @brief		A generic min heap.
+ * @brief		A min heap for unsigned 32 bit integer elements.
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust
  * @date		2010.02
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "MinHeap.h"
 
+struct HeapNode {
+	u32 elem;
+	u32 weight;
+};
+typedef struct HeapNode HeapNode;
+
 struct MinHeap {
-	HEAP_ELEM_T* data;
+	HeapNode* data;
 	u32 maxSize;
 	u32 currSize;
-};
-
-struct HeapNode {
-	HEAP_ELEM_T elem;
-	u32 weight;
 };
 
 inline static u32 parent(u32 index) {
@@ -26,11 +28,11 @@ inline static u32 parent(u32 index) {
 }
 
 inline static u32 lchild(u32 index) {
-	return index << 1 + 1;
+	return (index << 1) + 1;
 }
 
 inline static u32 rchild(u32 index) {
-	return index << 1 + 2;
+	return (index << 1) + 2;
 }
 
 MinHeap* newMinHeap(u32 size) {
@@ -43,7 +45,7 @@ MinHeap* newMinHeap(u32 size) {
 
 void deleteMinHeap(MinHeap* heap) {
 	if (heap == NULL) return;
-	if (heap->data != NULL) free(data);
+	if (heap->data != NULL) free(heap->data);
 	free(heap);
 }
 
@@ -68,12 +70,12 @@ static void bubbleDown(MinHeap* heap, u32 index) {
 	while (true) {
 		u32 left = lchild(index);
 		u32 right = rchild(index);
-		u32 lweight = left < currSize ? heap->data[left].weight : UINT32_MAX;
-		u32 rweight = right < currSize ? heap->data[right].weight : UINT32_MAX;
+		u32 lweight = left < heap->currSize ? heap->data[left].weight : UINT32_MAX;
+		u32 rweight = right < heap->currSize ? heap->data[right].weight : UINT32_MAX;
 		u32 sindex = (lweight < rweight) ? left : right;
 		u32 sweight = (lweight < rweight) ? lweight : rweight;
 		if (heap->data[index].weight > sweight) {
-			swap(data, index, sindex);
+			swap(heap, index, sindex);
 			index = sindex;
 		} else {
 			break;
@@ -81,7 +83,7 @@ static void bubbleDown(MinHeap* heap, u32 index) {
 	}
 }
 
-bool heapPopMin(MinHeap* heap, HEAP_ELEM_T* elem, u32* weight) {
+bool heapPopMin(MinHeap* heap, u32* elem, u32* weight) {
 	if (heap->currSize == 0) return false;
 
 	*elem = heap->data[0].elem;
@@ -93,7 +95,7 @@ bool heapPopMin(MinHeap* heap, HEAP_ELEM_T* elem, u32* weight) {
 	return true;
 }
 
-bool heapInsert(MinHeap* heap, HEAP_ELEM_T elem, u32 weight) {
+bool heapInsert(MinHeap* heap, u32 elem, u32 weight) {
 	if (heap->currSize == heap->maxSize) return false;
 
 	heap->data[heap->currSize].elem = elem;

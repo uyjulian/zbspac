@@ -1,5 +1,5 @@
 /**
- * @file		HuffmanDecode.c
+ * @file		HuffmanDecoder.c
  * @brief		The implementation of the huffman decoder (NeXaS flavor).
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust

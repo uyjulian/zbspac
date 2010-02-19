@@ -16,12 +16,16 @@
 struct BitStream;
 typedef struct BitStream BitStream;
 
-BitStream* newBitStream(byte* bytes, u32 length);
+BitStream* newBitStream(byte* data, u32 length);
 void deleteBitStream(BitStream* bs);
 
 bool bsNextBit(BitStream* bs, byte* result);
 bool bsNextByte(BitStream* bs, byte* result);
 
-byte getBit(byte data, byte offset);
+bool bsSetNextBit(BitStream* bs, byte data);
+bool bsSetNextByte(BitStream* bs, byte data);
+
+u32 bsGetCurrentByteIndex(const BitStream* bs);
+u32 bsGetCurrentBitIndex(const BitStream* bs);
 
 #endif

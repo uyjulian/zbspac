@@ -1,6 +1,6 @@
 /**
  * @file		MinHeap.h
- * @brief		A generic min heap.
+ * @brief		A min heap for unsigned 32 bit integer elements.
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust
  * @date		2010.02
@@ -18,7 +18,7 @@ MinHeap* newMinHeap(u32 size);
 void deleteMinHeap(MinHeap* heap);
 
 u32 heapElementCount(const MinHeap* heap);
-bool heapPopMin(MinHeap* heap, HEAP_ELEM_T* elem, u32* weight);
-bool heapInsert(MinHeap* heap, HEAP_ELEM_T elem, u32 weight);
+bool heapPopMin(MinHeap* heap, u32* elem, u32* weight);
+bool heapInsert(MinHeap* heap, u32 elem, u32 weight);
 
 #endif

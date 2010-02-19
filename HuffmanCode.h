@@ -13,5 +13,6 @@
 #include "ByteArray.h"
 
 ByteArray* huffmanDecode(const wchar_t* treeName, const byte* compressedData, u32 compressedLen, u32 originalLen);
+ByteArray* huffmanEncode(const wchar_t* treeName, const byte* originalData, u32 originalLen);
 
 #endif
