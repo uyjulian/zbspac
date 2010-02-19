@@ -78,12 +78,14 @@ static NexasPackage* openPackage(const wchar_t* packagePath) {
 }
 
 static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar_t* sourceDir) {
+	writeLog(LOG_VERBOSE, L"Generating package header......");
 	package->header = malloc(sizeof(Header));
 	memcpy(package->header->typeTag, "PAC", 3);
 	package->header->magicByte = 0;
 	package->header->variantTag = CONTENT_MAYBE_DEFLATE;
 	package->header->entryCount = 0;
 
+	writeLog(LOG_VERBOSE, L"Moving into source directory......");
 	if (_wchdir(sourceDir) != 0) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to read the source directory!");
 		return false;
@@ -91,10 +93,11 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 
 	struct _wfinddata_t foundFile;
 	intptr_t handle = _wfindfirst(L"*", &foundFile);
-	while (handle != -1) {
+	int status = 0;
+	while (status == 0) {
 		if ((foundFile.attrib & _A_SUBDIR) == 0)
 			++(package->header->entryCount);
-		handle = _wfindnext(handle, &foundFile);
+		status = _wfindnext(handle, &foundFile);
 	}
 	_findclose(handle);
 
@@ -127,7 +130,8 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 	u32 offset = 0;
 	struct _wfinddata_t foundFile;
 	intptr_t handle = _wfindfirst(L"*", &foundFile);
-	while (handle != -1) {
+	int status = 0;
+	while (status == 0) {
 		if ((foundFile.attrib & _A_SUBDIR) == 0) {
 			char* fname = toMBString(foundFile.name);
 			if (strlen(fname) >= 64) {
@@ -144,7 +148,7 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 			indexes[i].offset = offset;
 			offset += indexes[i].encodedLen;
 			writeLog(LOG_VERBOSE, L"Entry %u: %s, Offset: %u, ELen: %u, DLen: %u",
-					i, indexes[i].offset, indexes[i].encodedLen, indexes[i].decodedLen);
+					i, foundFile.name, indexes[i].offset, indexes[i].encodedLen, indexes[i].decodedLen);
 
 			FILE* infile = _wfopen(foundFile.name, L"rb");
 			byte* buffer = malloc(indexes[i].encodedLen);
@@ -164,8 +168,9 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 				return false;
 			}
 			writeLog(LOG_NORMAL, L"Packed: Entry %u: %s.", i, foundFile.name);
+			++i;
 		}
-		handle = _wfindnext(handle, &foundFile);
+		status = _wfindnext(handle, &foundFile);
 	}
 	_findclose(handle);
 	return true;
@@ -178,12 +183,21 @@ static bool writeIndexes(NexasPackage* package) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to encode the indexes!");
 		return false;
 	}
-	if (fwrite(baData(encodedIndexes), 1, baLength(encodedIndexes), package->file) != baLength(encodedIndexes)) {
+
+	/// Important: XOR encryption!
+	byte* encodedData = baData(encodedIndexes);
+	u32 encodedLen = baLength(encodedIndexes);
+
+	for (u32 i = 0; i < encodedLen; ++i) {
+		encodedData[i] ^= 0xFF;
+	}
+
+	if (fwrite(encodedData, 1, encodedLen, package->file) != baLength(encodedIndexes)) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to write the indexes to the package!");
 		return false;
 	}
-	u32 length = baLength(encodedIndexes);
-	if (fwrite(&length, 4, 1, package->file) != 1) {
+
+	if (fwrite(&encodedLen, 4, 1, package->file) != 1) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to write the index length to the package!");
 		return false;
 	}

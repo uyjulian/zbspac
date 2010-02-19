@@ -53,6 +53,7 @@ static u32 buildTree(const wchar_t* treeName, TreeNode tree [], const byte* orig
 		tree[ib].parent = index;
 		tree[ib].isrchild = true;
 		heapInsert(heap, index, wa + wb);
+		++index;
 	}
 	u32 rootIndex, rootWeight;
 	heapPopMin(heap, &rootIndex, &rootWeight);
@@ -61,16 +62,20 @@ static u32 buildTree(const wchar_t* treeName, TreeNode tree [], const byte* orig
 	return rootIndex;
 }
 
-static void encodeTree(const wchar_t* treeName, TreeNode tree[], u32 rootIndex, BitStream* bs) {
-	writeLog(LOG_VERBOSE, L"Encoding the tree itself......");
+static void subtreeEncodingWorker(const wchar_t* treeName, TreeNode tree[], u32 rootIndex, BitStream* bs) {
 	if (rootIndex < 256) {
 		bsSetNextBit(bs, 0);
 		bsSetNextByte(bs, rootIndex);
 	} else {
 		bsSetNextBit(bs, 1);
-		encodeTree(treeName, tree, tree[rootIndex].lchild, bs);
-		encodeTree(treeName, tree, tree[rootIndex].rchild, bs);
+		subtreeEncodingWorker(treeName, tree, tree[rootIndex].lchild, bs);
+		subtreeEncodingWorker(treeName, tree, tree[rootIndex].rchild, bs);
 	}
+}
+
+static void encodeTree(const wchar_t* treeName, TreeNode tree[], u32 rootIndex, BitStream* bs) {
+	writeLog(LOG_VERBOSE, L"Encoding the tree itself......");
+	subtreeEncodingWorker(treeName, tree, rootIndex, bs);
 	writeLog(LOG_VERBOSE, L"Tree Encoded.");
 }
 
@@ -90,9 +95,11 @@ static void encodeData(const wchar_t* treeName, TreeNode tree[], u32 rootIndex, 
 		}
 	}
 
+	writeLog(LOG_VERBOSE, L"Huffman codes for individual bytes are generated.");
+
 	for (u32 i = 0; i < oriLen; ++i) {
 		u8* thisCode = code[data[i]];
-		for (u16 j = codeLen[data[i]] - 1; j >= 0; --j) {
+		for (i16 j = codeLen[data[i]] - 1; j >= 0; --j) {
 			bsSetNextBit(bs, thisCode[j]);
 		}
 	}
