@@ -17,14 +17,11 @@ OBJS = $(patsubst %.c, %.o, $(SRCS))
 
 all: $(EXE_TARGET)
 
-$(EXE_TARGET): $(OBJS) $(HEADERS)
+$(EXE_TARGET): $(OBJS)
 	$(CC) -o $(EXE_TARGET) $(OBJS) $(LIBS)
       
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-
-clean:
-	del $(OBJS) $(EXE_TARGET) $(SRC_DIST) $(BIN_DIST)
 	
 src_dist: $(SRC_DIST)
 
@@ -35,4 +32,9 @@ $(SRC_DIST): $(SRCS) $(HEADERS) $(TXTS) $(PROJECT_FILE)
 
 $(BIN_DIST): $(EXE_TARGET) $(TXTS)
 	$(DIST_MAKE) $(BIN_DIST) $(EXE_TARGET) $(TXTS)
+
+.PHONY: clean
+	
+clean:
+	del $(OBJS) $(EXE_TARGET) $(SRC_DIST) $(BIN_DIST)
 	
