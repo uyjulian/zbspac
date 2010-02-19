@@ -54,6 +54,10 @@ static StateCode readCmd(CmdArgs* args, const char* str) {
 		args->cmdType = CMD_PACK;
 		return APS_WAITING_SOURCE;
 	}
+	if (strcmp(str, "zip") == 0) {
+			args->cmdType = CMD_ZIP;
+			return APS_WAITING_SOURCE;
+	}
 	if (strcmp(str, "unpack") == 0) {
 		args->cmdType = CMD_UNPACK;
 		return APS_WAITING_SOURCE;

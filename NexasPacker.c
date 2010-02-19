@@ -120,14 +120,14 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 	return true;
 }
 
-static bool recordAndWriteEntries(NexasPackage* package) {
+static bool recordAndWriteEntries(NexasPackage* package, bool shouldZip) {
 	package->indexes = newByteArray(package->header->entryCount * sizeof(IndexEntry));
 	IndexEntry* indexes = (IndexEntry*)baData(package->indexes);
 
 	encodingSwitchToShiftJIS();
 
 	u32 i = 0;
-	u32 offset = 0;
+	u32 offset = 12;
 	struct _wfinddata_t foundFile;
 	intptr_t handle = _wfindfirst(L"*", &foundFile);
 	int status = 0;
@@ -146,33 +146,53 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 			indexes[i].encodedLen = foundFile.size;
 			indexes[i].decodedLen = foundFile.size;
 			indexes[i].offset = offset;
-			offset += indexes[i].encodedLen;
-			writeLog(LOG_VERBOSE, L"Entry %u: %s, Offset: %u, ELen: %u, DLen: %u",
-					i, foundFile.name, indexes[i].offset, indexes[i].encodedLen, indexes[i].decodedLen);
+			writeLog(LOG_VERBOSE, L"Entry %u: %s, Offset: %u, OLen: %u",
+					i, foundFile.name, indexes[i].offset, indexes[i].decodedLen);
 
 			FILE* infile = _wfopen(foundFile.name, L"rb");
-			byte* buffer = malloc(indexes[i].encodedLen);
-			if (fread(buffer, 1, indexes[i].decodedLen, infile) != indexes[i].decodedLen) {
+			byte* decodedData = malloc(indexes[i].decodedLen);
+
+			if (fread(decodedData, 1, indexes[i].decodedLen, infile) != indexes[i].decodedLen) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to read the file!", i, foundFile.name);
 				encodingSwitchToNative();
-				free(buffer);
+				free(decodedData);
 				fclose(infile);
 				return false;
 			}
 			fclose(infile);
 
-			if (fwrite(buffer, 1, indexes[i].encodedLen, package->file) != indexes[i].encodedLen) {
+			byte* encodedData = NULL;
+
+			if (shouldZip) {
+				encodedData = malloc(indexes[i].decodedLen);
+				unsigned long len = indexes[i].encodedLen;
+				compress(encodedData, &len, decodedData, indexes[i].decodedLen);
+				indexes[i].encodedLen = len;
+			} else {
+				encodedData = decodedData;
+			}
+			offset += indexes[i].encodedLen;
+			writeLog(LOG_VERBOSE, L"Entry %u: ELen: %u", i, indexes[i].encodedLen);
+
+			if (fwrite(encodedData, 1, indexes[i].encodedLen, package->file) != indexes[i].encodedLen) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to write to the package!", i, foundFile.name);
 				encodingSwitchToNative();
-				free(buffer);
+				if (encodedData != decodedData) free(encodedData);
+				free(decodedData);
+				encodingSwitchToNative();
 				return false;
 			}
+
+			if (encodedData != decodedData) free(encodedData);
+			free(decodedData);
+
 			writeLog(LOG_NORMAL, L"Packed: Entry %u: %s.", i, foundFile.name);
 			++i;
 		}
 		status = _wfindnext(handle, &foundFile);
 	}
 	_findclose(handle);
+	encodingSwitchToNative();
 	return true;
 }
 
@@ -184,10 +204,10 @@ static bool writeIndexes(NexasPackage* package) {
 		return false;
 	}
 
-	/// Important: XOR encryption!
 	byte* encodedData = baData(encodedIndexes);
 	u32 encodedLen = baLength(encodedIndexes);
-
+	writeLog(LOG_VERBOSE, L"The length of the compressed index is %u.", encodedLen);
+	/// Important: XOR encryption!
 	for (u32 i = 0; i < encodedLen; ++i) {
 		encodedData[i] ^= 0xFF;
 	}
@@ -204,7 +224,7 @@ static bool writeIndexes(NexasPackage* package) {
 	return true;
 }
 
-bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath) {
+bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath, bool shouldZip) {
 	wchar_t* aSourceDir = fsAbsolutePath(sourceDir);
 	wchar_t* aPackagePath = fsAbsolutePath(packagePath);
 	writeLog(LOG_NORMAL, L"Packing files under directory: %s", aSourceDir);
@@ -212,7 +232,7 @@ bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath) {
 	NexasPackage* package = openPackage(packagePath);
 	if (!package) return false;
 	bool result = determineEntryCountAndWriteHeader(package, sourceDir)
-			&& recordAndWriteEntries(package)
+			&& recordAndWriteEntries(package, shouldZip)
 			&& writeIndexes(package);
 	closePackage(package);
 	free(aSourceDir);
