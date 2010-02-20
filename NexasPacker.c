@@ -230,18 +230,14 @@ static bool writeIndexes(NexasPackage* package) {
 }
 
 bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath, bool shouldZip) {
-	wchar_t* aSourceDir = fsAbsolutePath(sourceDir);
-	wchar_t* aPackagePath = fsAbsolutePath(packagePath);
-	writeLog(LOG_NORMAL, L"Packing files under directory: %s", aSourceDir);
-	writeLog(LOG_NORMAL, L"To package: %s", aPackagePath);
+	writeLog(LOG_NORMAL, L"Packing files under directory: %s", sourceDir);
+	writeLog(LOG_NORMAL, L"To package: %s", packagePath);
 	NexasPackage* package = openPackage(packagePath);
 	if (!package) return false;
 	bool result = determineEntryCountAndWriteHeader(package, sourceDir)
 			&& recordAndWriteEntries(package, shouldZip)
 			&& writeIndexes(package);
 	closePackage(package);
-	free(aSourceDir);
-	free(aPackagePath);
 	writeLog(LOG_NORMAL, L"%s",
 			result ? L"Packing Finished." : L"Packing Failed.");
 	return result;

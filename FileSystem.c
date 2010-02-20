@@ -32,35 +32,43 @@ wchar_t* fsCombinePath(const wchar_t* directory, const wchar_t* filename) {
 
 bool fsEnsureDirectoryExists(const wchar_t* dir) {
 	if (dir == NULL) return false;
-
-	wchar_t* curDir = _wgetcwd(NULL, CBUF_TRY_SIZE);
+	wchar_t* targetDir = fsAbsolutePath(dir);
+	wchar_t* currentDir = _wgetcwd(NULL, CBUF_TRY_SIZE);
 
 	/// If the directory already exists, do nothing.
-	if (_wchdir(dir) == 0) {
-		_wchdir(curDir);
-		free(curDir);
+	if (_wchdir(targetDir) == 0) {
+		_wchdir(currentDir);
+		free(currentDir);
 		return true;
 	}
 
 	/**
 	 * Create all directories along the specified path.
 	 */
-
 	wchar_t* workPath = newWCString(wcslen(dir));
 	wcscpy(workPath, dir);
 
+	/**
+	 * The first component of the path is the drive specifier.
+	 * We should go to its root first.
+	 */
 	wchar_t* pathComponent = wcstok(workPath, L"\\");
-	bool result = false;
+	wchar_t* initialPath = wcsAppend(pathComponent, L"\\");
+	_wchdir(initialPath);
+	free(initialPath);
+	pathComponent = wcstok(NULL, L"\\");
+
+	bool status = 0;
 	while (pathComponent) {
 		_wmkdir(pathComponent);
-		result = _wchdir(pathComponent);
-		if (result != 0) break;
+		status = _wchdir(pathComponent);
+		if (status != 0) break;
 		pathComponent = wcstok(NULL, L"\\");
 	}
 
-	_wchdir(curDir);
-	free(curDir);
+	_wchdir(currentDir);
+	free(currentDir);
 	free(workPath);
 
-	return result == 0;
+	return status == 0;
 }

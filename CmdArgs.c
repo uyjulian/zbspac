@@ -11,6 +11,7 @@
 
 #include "Logger.h"
 #include "StringUtils.h"
+#include "FileSystem.h"
 #include "CmdArgs.h"
 
 struct CmdArgs {
@@ -22,7 +23,7 @@ struct CmdArgs {
 
 /**
  * The parser is a simple FSM, that accepts:
- * (quietly|verbosely)? (pack|unpack|help|about) (source_path) (target_path)?
+ * (quietly|verbosely)? (pack|zip|unpack|help|about) (source_path) (target_path)?
  */
 
 enum StateCode {
@@ -103,12 +104,24 @@ static StateCode readTargetPath(CmdArgs* args, const char* str) {
 	return APS_FINISHED;
 }
 
-static void fillInDefaultArgs(CmdArgs* args) {
+static void useAbsolutePath(CmdArgs* args) {
+	wchar_t* aSourcePath = fsAbsolutePath(args->sourcePath);
+	free(args->sourcePath);
+	args->sourcePath = aSourcePath;
+
+	if (args->targetPath != NULL) {
+		wchar_t* aTargetPath = fsAbsolutePath(args->targetPath);
+		free(args->targetPath);
+		args->targetPath = aTargetPath;
+	}
+}
+
+static void fillWithDefaultArgs(CmdArgs* args) {
 	if (args->logLevel == LOG_NOT_SPECIFIED)
 		args->logLevel = LOG_NORMAL;
 
 	if (args->targetPath == NULL) {
-		if (args->cmdType == CMD_PACK) {
+		if (args->cmdType == CMD_PACK || args->cmdType == CMD_ZIP) {
 			/**
 			 * Target should be a package file.
 			 * To obtain the default path, append '.pac' to source path,
@@ -174,7 +187,8 @@ CmdArgs* parseCmdLine(int argc, char** argv) {
 	if (index < argc) state = APS_ERROR;
 
 	if (state == APS_FINISHED) {
-		fillInDefaultArgs(args);
+		useAbsolutePath(args);
+		fillWithDefaultArgs(args);
 		return args;
 	}
 
