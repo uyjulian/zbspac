@@ -16,7 +16,6 @@ typedef struct CmdArgs CmdArgs;
 
 enum CmdType {
 	CMD_PACK,
-	CMD_ZIP,
 	CMD_UNPACK,
 	CMD_HELP,
 	CMD_ABOUT

@@ -221,7 +221,7 @@ bool unpackPackage(const wchar_t* packagePath, const wchar_t* targetDir) {
 	writeLog(LOG_NORMAL, L"Unpacking package: %s", packagePath);
 	writeLog(LOG_NORMAL, L"To Directory: %s", targetDir);
 	if (!fsEnsureDirectoryExists(targetDir)) {
-		writeLog(LOG_QUIET, L"ERROR: Target directory does not exist and could not be created.", targetDir);
+		writeLog(LOG_QUIET, L"ERROR: Target directory does not exist and cannot be created.", targetDir);
 		return false;
 	}
 	NexasPackage* package = openPackage(packagePath);
@@ -230,7 +230,6 @@ bool unpackPackage(const wchar_t* packagePath, const wchar_t* targetDir) {
 			&& decodeIndex(package)
 			&& extractFiles(package, targetDir);
 	closePackage(package);
-	writeLog(LOG_NORMAL, L"%s",
-			result ? L"Unpacking Finished." : L"Unpacking Failed.");
+	writeLog(LOG_NORMAL, (result) ? L"Unpacking Successful." : L"ERROR: Unpacking Failed.");
 	return result;
 }

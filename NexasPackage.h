@@ -12,6 +12,6 @@
 #include "CommonDef.h"
 
 bool unpackPackage(const wchar_t* packagePath, const wchar_t* targetDir);
-bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath, bool shouldZip);
+bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath);
 
 #endif

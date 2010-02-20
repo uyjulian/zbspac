@@ -51,6 +51,17 @@ struct NexasPackage {
 };
 typedef struct NexasPackage NexasPackage;
 
+static inline bool shouldZip(wchar_t* filename) {
+	static const wchar_t* targetExts[] = { L".ogg" };
+	for (i8 i = 0; i < 1; ++i) {
+		wchar_t* cmpptr = filename + wcslen(filename) - wcslen(targetExts[i]);
+		if (wcscmp(cmpptr, targetExts[i]) == 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
 static void closePackage(NexasPackage* package) {
 	if (!package) return;
 	if (package->header)
@@ -120,7 +131,7 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 	return true;
 }
 
-static bool recordAndWriteEntries(NexasPackage* package, bool shouldZip) {
+static bool recordAndWriteEntries(NexasPackage* package) {
 	package->indexes = newByteArray(package->header->entryCount * sizeof(IndexEntry));
 	IndexEntry* indexes = (IndexEntry*)baData(package->indexes);
 
@@ -163,7 +174,7 @@ static bool recordAndWriteEntries(NexasPackage* package, bool shouldZip) {
 
 			byte* encodedData = NULL;
 
-			if (shouldZip) {
+			if (shouldZip(foundFile.name)) {
 				encodedData = malloc(indexes[i].decodedLen);
 				unsigned long len = indexes[i].encodedLen;
 				if (compress(encodedData, &len, decodedData, indexes[i].decodedLen) != Z_OK) {
@@ -173,6 +184,7 @@ static bool recordAndWriteEntries(NexasPackage* package, bool shouldZip) {
 					return false;
 				}
 				indexes[i].encodedLen = len;
+				writeLog(LOG_VERBOSE, L"Entry %u is compressed: ELen: %u", i, len);
 			} else {
 				encodedData = decodedData;
 			}
@@ -229,16 +241,15 @@ static bool writeIndexes(NexasPackage* package) {
 	return true;
 }
 
-bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath, bool shouldZip) {
+bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath) {
 	writeLog(LOG_NORMAL, L"Packing files under directory: %s", sourceDir);
 	writeLog(LOG_NORMAL, L"To package: %s", packagePath);
 	NexasPackage* package = openPackage(packagePath);
 	if (!package) return false;
 	bool result = determineEntryCountAndWriteHeader(package, sourceDir)
-			&& recordAndWriteEntries(package, shouldZip)
+			&& recordAndWriteEntries(package)
 			&& writeIndexes(package);
 	closePackage(package);
-	writeLog(LOG_NORMAL, L"%s",
-			result ? L"Packing Finished." : L"Packing Failed.");
+	writeLog(LOG_NORMAL, (result) ? L"Packing Successful." : L"ERROR: Packing Failed.");
 	return result;
 }

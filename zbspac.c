@@ -24,13 +24,14 @@ void init() {
 	encodingSwitchToNative();
 }
 
-bool processPackCmd(CmdArgs* args, bool shouldZip) {
-	return packPackage(argSourcePath(args), argTargetPath(args), shouldZip);
+bool processPackCmd(CmdArgs* args) {
+	return packPackage(argSourcePath(args), argTargetPath(args));
 }
 
 bool processUnpackCmd(CmdArgs* args) {
 	return unpackPackage(argSourcePath(args), argTargetPath(args));
 }
+
 
 bool processAboutCmd(CmdArgs* args) {
 	writeOnlyOnLevel(LOG_QUIET, L"Shhhhhhh...... I should stay quiet......");
@@ -46,9 +47,7 @@ bool processHelpCmd(CmdArgs* args) {
 	writeLog(LOG_NORMAL,L"");
 	writeLog(LOG_NORMAL,L"  You should specify the operation you want to perform:");
 	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"    pack   -- pack all files under a given directory into a package,");
-	writeLog(LOG_NORMAL,L"              without compression.");
-	writeLog(LOG_NORMAL,L"    zip    -- pack with deflate (zlib/gzip) compression.");
+	writeLog(LOG_NORMAL,L"    pack   -- pack all files under a given directory into a package.");
 	writeLog(LOG_NORMAL,L"    unpack -- unpack a package and place the contents in a directory.");
 	writeLog(LOG_NORMAL,L"    help   -- display this page. (Maybe)");
 	writeLog(LOG_NORMAL,L"    about  -- display some copyright information.");
@@ -84,10 +83,7 @@ int main(int argc, char** argv) {
 
 	switch (argCmdType(args)) {
 	case CMD_PACK:
-		result = processPackCmd(args, false);
-		break;
-	case CMD_ZIP:
-		result = processPackCmd(args, true);
+		result = processPackCmd(args);
 		break;
 	case CMD_UNPACK:
 		result = processUnpackCmd(args);
