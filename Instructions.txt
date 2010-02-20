@@ -28,7 +28,7 @@ a '_' suffix will be appended to avoid name collision.
 When packing a new package, subdirectories are ignored,
 and the file names should not exceed 63 bytes.
 
--------------------------------------------
+----------------------------------------------------------------
 [The following are instructions in Simplified Chinese.]
 
 Baldr Sky资源解包/封包器zbspac使用方法：
