@@ -1,0 +1,66 @@
+Format of Baldr Sky resource package files (*.pac)
+--------------------------------------------------
+Written by CloudiDust
+Many materials here are based on the work by 痴汉公贼(jzhang0) & asmodean
+-------------------------------------------------------------------------
+
+The first 3 bytes of a PAC file is the type tag (in ASCII) 'PAC'.
+
+The 4th byte seems a reserved one, and its value doesn't matter, the PACs
+shipped with the game vary on this byte.
+
+The next 4 bytes is a 32 bit unsigned integer representing the number of packed
+files in this file (and the number of entries in the index).
+
+The next double word is a tag indicating the format variant used by this file.
+The PACs in Baldr Sky all use Variant 4.
+
+Then comes the data section, where the contents of packed files are stored.
+
+The index into this data section is stored at the end of the file, encrypted.
+The last 4 bytes of the file is the length (in bytes) of the encrypted index.
+The index itself is stored just before this byte. It is huffman coded and then
+encrypted by XORing each byte with 0xFF (which means it is "negated").
+
+The huffman tree is stored at the head of the index data, which can be rebuilt
+using the following rules (taking advantage of the tree's properties).
+
+A bit 1 means a new internal node, and the following data represents the two
+subtrees of this node, first the left child, then the right, also following
+the rules. (Recursion here.)
+
+A bit 0 means a new leaf node, and the following byte is the value that the
+node represents.
+
+The recursive tree building process would consume part of the index data, and
+the remaining data is the true index encoded with the huffman tree.
+
+The decoded index is an array of entries, each point to one of the packed files.
+Each entry is in the form:
+
+  name:       64 bytes, the name of the packed file, in Shift-JIS encoding;
+  offset:     4 bytes, the offset in the package where the file data begins;
+  encodedLen: the length of the data section for the file;
+  decodedLen: the original length of the file.
+  
+If encodedLen is equal to decodedLen, then this file is not compressed,
+otherwise the file is compressed using the deflate algorithm (the one used in
+zlib).
+
+-------------------------------------------------------------------------
+
+Notes on PAC creation:
+
+The above information is all we need to unpack the PAC files, but when creating
+PACs, we must decide whether to use compression or not. I originally assumed
+that the game wouldn't care whether a particular file is compressed, as long as
+the index is correct. But after a few attempts it turns out the game has its
+own tendency:
+
+The ogg files should be left unchanged, while the others must be compressed.
+
+Respect it. Otherwise the game will crash or have sound playback issues.
+
+It is still not clear whether there are other file types that shouldn't be
+compressed, if you find one of those, please let me know. :)
+

@@ -1,0 +1,58 @@
+Instructions on Using zbspac:
+
+zbspac is a command line application.
+Put zbspac.exe anywhere you want, and use the following --
+
+Command syntax:
+
+  zbspac [quietly|verbosely] <operation> source_path [target_path]
+
+You should specify the operation you want to perform:
+
+  pack   -- pack all files under a given directory into a package.
+  unpack -- unpack a package and place the contents in a directory.
+  help   -- display the help page. (which is almost identical to this file)
+  about  -- display some copyright information.
+
+You may define how noisy this program will be,
+just add 'quietly' or 'verbosely' before the operation.
+When 'quietly', nothing will be displayed if everything
+goes on well, while 'verbosely' is mainly for debugging.
+
+If no target is specified, a default path will be used.
+For packing, it is the source path with '.pac' suffix.
+For unpacking, it is the source path without extension.
+If the source package name itself has no extension,
+a '_' suffix will be appended to avoid name collision.
+
+When packing a new package, subdirectories are ignored,
+and the file names should not exceed 63 bytes.
+
+-------------------------------------------
+[The following are instructions in Simplified Chinese.]
+
+Baldr Sky资源解包/封包器zbspac使用方法：
+
+将zbspac.exe解压到任意目录下，而后在命令提示符中调用，命令格式如下：
+
+  zbspac [quietly|verbosely] <操作名称> 源路径 [目标路径]
+  
+其中，操作名称为如下四个操作之一：
+
+  pack：     将指定目录下的所有文件打包为PAC文件。
+  unpack：将指定的PAC文件解包到目标目录下。
+  help：     显示帮助信息（基本上就是此说明的英文版）。
+  about:  显示作者和鸣谢信息。	
+
+在操作名称之前可以选择性加上quietly或者verbosely选项，这是用于控制
+程序输出信息的详细程度的，quietly模式下程序只有在出错时才有少量提示，
+而正常运行时不会产生输出（Unix风格），而verbosely模式下则会输出很多
+状态信息，这主要是调试程序时用的xD。
+
+对于pack和unpack操作，源路径是必不可少的，但目标路径则可以省略。
+对于pack操作，默认的目标路径是在源路径后加上".pac"后缀。
+对于unpack操作，默认的目标路径是将源路径去掉扩展名，如果源路径本身
+就没有扩展名的，那么目标路径将是源路径加上"_"后缀，以防止重名。
+
+在进行打包操作时，源目录的子目录及其中所有的文件与目录都会被忽略。
+此外，请注意被打包文件的文件名长度不能超过63字节（Shift-JIS编码）。

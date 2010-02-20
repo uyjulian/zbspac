@@ -35,8 +35,8 @@ bool processUnpackCmd(CmdArgs* args) {
 
 bool processAboutCmd(CmdArgs* args) {
 	writeOnlyOnLevel(LOG_QUIET, L"Shhhhhhh...... I should stay quiet......");
-	writeLog(LOG_NORMAL, L"zbspac: CloudiDust's resource (un)packer for Baldr Sky.");
-	writeLog(LOG_NORMAL, L"Copyright 2010, CloudiDust. Covered by 2-clause BSD license.");
+	writeLog(LOG_NORMAL, L"zbspac: a resource (un)packer for Baldr Sky.");
+	writeLog(LOG_NORMAL, L"Copyright 2010, CloudiDust.");
 	writeLog(LOG_NORMAL, L"Special thanks to 痴汉公贼(jzhang0) & asmodean.");
 	return true;
 }
@@ -54,8 +54,8 @@ bool processHelpCmd(CmdArgs* args) {
 	writeLog(LOG_NORMAL,L"");
 	writeLog(LOG_NORMAL,L"  You may define how noisy this program will be,");
 	writeLog(LOG_NORMAL,L"  just add 'quietly' or 'verbosely' before the operation.");
-	writeLog(LOG_NORMAL,L"  In 'quiet' mode, nothing will be displayed if everything goes on well.");
-	writeLog(LOG_NORMAL,L"  And 'verbose' mode is mainly for debug purposes.");
+	writeLog(LOG_NORMAL,L"  When 'quietly', nothing will be displayed if everything");
+	writeLog(LOG_NORMAL,L"  goes on well, while 'verbosely' is mainly for debugging.");
 	writeLog(LOG_NORMAL,L"");
 	writeLog(LOG_NORMAL,L"  If no target is specified, a default path will be used.");
 	writeLog(LOG_NORMAL,L"  For packing, it is the source path with '.pac' suffix.");
