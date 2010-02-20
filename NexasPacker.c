@@ -112,7 +112,7 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 	}
 	_findclose(handle);
 
-	writeLog(LOG_VERBOSE, L"Found %u entries in the source directory.",
+	writeLog(LOG_NORMAL, L"Found %u entries in the source directory.",
 			package->header->entryCount);
 
 	if (package->header->entryCount == 0) {

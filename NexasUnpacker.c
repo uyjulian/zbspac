@@ -97,7 +97,7 @@ static bool validateHeader(NexasPackage* package) {
 		writeLog(LOG_QUIET, L"ERROR: This PAC variant is not supported yet.");
 		return false;
 	}
-	writeLog(LOG_VERBOSE, L"Entry count: %u.", package->header->entryCount);
+	writeLog(LOG_NORMAL, L"Entry count: %u.", package->header->entryCount);
 	return true;
 }
 
