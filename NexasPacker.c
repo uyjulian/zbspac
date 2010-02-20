@@ -166,7 +166,12 @@ static bool recordAndWriteEntries(NexasPackage* package, bool shouldZip) {
 			if (shouldZip) {
 				encodedData = malloc(indexes[i].decodedLen);
 				unsigned long len = indexes[i].encodedLen;
-				compress(encodedData, &len, decodedData, indexes[i].decodedLen);
+				if (compress(encodedData, &len, decodedData, indexes[i].decodedLen) != Z_OK) {
+					free(encodedData);
+					free(decodedData);
+					encodingSwitchToNative();
+					return false;
+				}
 				indexes[i].encodedLen = len;
 			} else {
 				encodedData = decodedData;
