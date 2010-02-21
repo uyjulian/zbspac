@@ -59,6 +59,10 @@ static StateCode readCmd(CmdArgs* args, const char* str) {
 		args->cmdType = CMD_UNPACK;
 		return APS_WAITING_SOURCE;
 	}
+	if (strcmp(str, "unpack-script") == 0) {
+		args->cmdType = CMD_UNPACK_SCRIPT;
+		return APS_WAITING_SOURCE;
+	}
 	if (strcmp(str, "help") == 0) {
 		args->cmdType = CMD_HELP;
 		return APS_FINISHED;
@@ -143,6 +147,11 @@ static void fillWithDefaultArgs(CmdArgs* args) {
 			} else {
 				args->targetPath = wcsAppend(args->sourcePath, L"_");
 			}
+		} else if (args->cmdType == CMD_UNPACK_SCRIPT) {
+			/**
+			 * When unpacking script, target should be a txt file.
+			 */
+			args->targetPath = wcsAppend(args->sourcePath, L".txt");
 		}
 	}
 }

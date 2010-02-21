@@ -16,6 +16,7 @@
 #include "StringUtils.h"
 #include "CmdArgs.h"
 #include "NexasPackage.h"
+#include "ScriptFile.h"
 
 const wchar_t* USAGE_STRING = L"Usage: zbspac [quietly|verbosely] <operation> source_path [target_path]";
 
@@ -32,6 +33,9 @@ bool processUnpackCmd(CmdArgs* args) {
 	return unpackPackage(argSourcePath(args), argTargetPath(args));
 }
 
+bool processUnpackScriptCmd(CmdArgs* args) {
+	return unpackScript(argSourcePath(args), argTargetPath(args));
+}
 
 bool processAboutCmd(CmdArgs* args) {
 	writeOnlyOnLevel(LOG_QUIET, L"Shhhhhhh...... I should stay quiet......");
@@ -87,6 +91,9 @@ int main(int argc, char** argv) {
 		break;
 	case CMD_UNPACK:
 		result = processUnpackCmd(args);
+		break;
+	case CMD_UNPACK_SCRIPT:
+		result = processUnpackScriptCmd(args);
 		break;
 	case CMD_ABOUT:
 		result = processAboutCmd(args);
