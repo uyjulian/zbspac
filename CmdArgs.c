@@ -59,6 +59,10 @@ static StateCode readCmd(CmdArgs* args, const char* str) {
 		args->cmdType = CMD_UNPACK;
 		return APS_WAITING_SOURCE;
 	}
+	if (strcmp(str, "pack-script") == 0) {
+			args->cmdType = CMD_PACK_SCRIPT;
+			return APS_WAITING_SOURCE;
+	}
 	if (strcmp(str, "unpack-script") == 0) {
 		args->cmdType = CMD_UNPACK_SCRIPT;
 		return APS_WAITING_SOURCE;
@@ -127,9 +131,13 @@ static void fillWithDefaultArgs(CmdArgs* args) {
 			 * To obtain the default path, append '.pac' to source path,
 			 */
 			args->targetPath = wcsAppend(args->sourcePath, L".pac");
-		} else if (args->cmdType == CMD_UNPACK) {
+		} else if (args->cmdType == CMD_UNPACK_SCRIPT) {
 			/**
-			 * Target should be a directory.
+			 * When unpacking script, target should be a txt file.
+			 */
+			args->targetPath = wcsAppend(args->sourcePath, L".txt");
+		} else if (args->cmdType == CMD_UNPACK || args->cmdType == CMD_PACK_SCRIPT) {
+			/**
 			 * To obtain the default path, remove the extension.
 			 * Be aware that the last dot may not be a indicator of extension,
 			 * e.g. c:\abc.def\some_file, so we need to know who appears first,
@@ -147,11 +155,6 @@ static void fillWithDefaultArgs(CmdArgs* args) {
 			} else {
 				args->targetPath = wcsAppend(args->sourcePath, L"_");
 			}
-		} else if (args->cmdType == CMD_UNPACK_SCRIPT) {
-			/**
-			 * When unpacking script, target should be a txt file.
-			 */
-			args->targetPath = wcsAppend(args->sourcePath, L".txt");
 		}
 	}
 }

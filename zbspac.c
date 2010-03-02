@@ -33,6 +33,10 @@ bool processUnpackCmd(CmdArgs* args) {
 	return unpackPackage(argSourcePath(args), argTargetPath(args));
 }
 
+bool processPackScriptCmd(CmdArgs* args) {
+	return packScript(argSourcePath(args), argTargetPath(args));
+}
+
 bool processUnpackScriptCmd(CmdArgs* args) {
 	return unpackScript(argSourcePath(args), argTargetPath(args));
 }
@@ -92,6 +96,9 @@ int main(int argc, char** argv) {
 	case CMD_UNPACK:
 		result = processUnpackCmd(args);
 		break;
+	case CMD_PACK_SCRIPT:
+		result = processPackScriptCmd(args);
+	break;
 	case CMD_UNPACK_SCRIPT:
 		result = processUnpackScriptCmd(args);
 		break;
