@@ -14,6 +14,7 @@
 #include "Logger.h"
 #include "StringUtils.h"
 #include "FileSystem.h"
+#include "LzssCode.h"
 #include "HuffmanCode.h"
 #include "NexasPackage.h"
 
@@ -93,7 +94,7 @@ static bool validateHeader(NexasPackage* package) {
 	u32 vtag = package->header->variantTag;
 	writeLog(LOG_VERBOSE, L"File variant tag is %d.", vtag);
 
-	if (vtag != CONTENT_MAYBE_DEFLATE) {
+	if (vtag != CONTENT_MAYBE_DEFLATE && vtag != CONTENT_LZSS) {
 		writeLog(LOG_QUIET, L"ERROR: This PAC variant is not supported yet.");
 		return false;
 	}
@@ -133,6 +134,30 @@ static bool decodeIndex(NexasPackage* package) {
 	deleteByteArray(encodedData);
 	package->indexes = originalIndexes;
 	return (package->indexes != NULL);
+}
+
+static bool readIndex(NexasPackage* package) {
+	/// First, try to read plain text index (used in Baldr Force EXE, PAC variant 2).
+	writeLog(LOG_VERBOSE, L"Trying to read the index as plain text.");
+	u32 indexesLen = package->header->entryCount * sizeof(IndexEntry);
+	fseek(package->file, 12, SEEK_SET);
+	package->indexes = newByteArray(indexesLen);
+	if (fread(baData(package->indexes), sizeof(byte), indexesLen, package->file) != indexesLen) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to read the 'plain text' index!");
+		deleteByteArray(package->indexes);
+		return false;
+	}
+
+	/**
+	 * If the index data is valid, the packed file contents should be immediately following,
+	 * or we can conclude that the real index data is at the end of the file and encoded.
+	 */
+	IndexEntry* indexes = (IndexEntry*)(baData(package->indexes));
+	if (indexes[0].offset != 12 + indexesLen) {
+		writeLog(LOG_VERBOSE, L"The index is invalid, trying to read encoded index.");
+		return decodeIndex(package);
+	}
+	return true;
 }
 
 static void cleanupForEntry(wchar_t* name, wchar_t* path, ByteArray* encodedData, ByteArray* decodedData, bool success) {
@@ -175,16 +200,25 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		}
 
 		/**
-		 * The stored data may actually be in the uncompressed form.
-		 * (e.g. update.pac in Baldr Sky Dive 2 version 1.05)
-		 * So we should do a test.
+		 * Now we support two PAC variants.
+		 * The first is Variant 4, where contents are either uncompressed (like ogg files),
+		 * or compressed using zlib (the deflate algorithm).
+		 * We should do a test to determine if the particular file is compressed or not.
 		 */
-		unsigned long decodedLen = indexes[i].decodedLen;
-		if (decodedLen > indexes[i].encodedLen) {
-			decodedData = newByteArray(decodedLen);
-			if (uncompress(baData(decodedData), &decodedLen, baData(encodedData), indexes[i].encodedLen) != Z_OK) {
-				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to extract data!",
-					i, wName);
+		if (package->header->variantTag == CONTENT_MAYBE_DEFLATE) {
+			unsigned long decodedLen = indexes[i].decodedLen;
+			if (decodedLen > indexes[i].encodedLen) {
+				decodedData = newByteArray(decodedLen);
+				if (uncompress(baData(decodedData), &decodedLen, baData(encodedData), indexes[i].encodedLen) != Z_OK) {
+					writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to extract data!", i, wName);
+					cleanupForEntry(wName, NULL, encodedData, decodedData, false);
+					return false;
+				}
+			}
+		} else if (package->header->variantTag == CONTENT_LZSS) {
+			decodedData = lzssDecode(baData(encodedData), indexes[i].encodedLen, indexes[i].decodedLen);
+			if (decodedData == NULL) {
+				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to extract data!", i, wName);
 				cleanupForEntry(wName, NULL, encodedData, decodedData, false);
 				return false;
 			}
@@ -227,7 +261,7 @@ bool unpackPackage(const wchar_t* packagePath, const wchar_t* targetDir) {
 	NexasPackage* package = openPackage(packagePath);
 	if (!package) return false;
 	bool result = validateHeader(package)
-			&& decodeIndex(package)
+			&& readIndex(package)
 			&& extractFiles(package, targetDir);
 	closePackage(package);
 	writeLog(LOG_NORMAL, (result) ? L"Unpacking Successful." : L"ERROR: Unpacking Failed.");
