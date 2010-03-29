@@ -55,6 +55,10 @@ static StateCode readCmd(CmdArgs* args, const char* str) {
 		args->cmdType = CMD_PACK;
 		return APS_WAITING_SOURCE;
 	}
+	if (strcmp(str, "pack-bfe") == 0) {
+		args->cmdType = CMD_PACK_BFE;
+		return APS_WAITING_SOURCE;
+	}
 	if (strcmp(str, "unpack") == 0) {
 		args->cmdType = CMD_UNPACK;
 		return APS_WAITING_SOURCE;
@@ -125,7 +129,7 @@ static void fillWithDefaultArgs(CmdArgs* args) {
 		args->logLevel = LOG_NORMAL;
 
 	if (args->targetPath == NULL) {
-		if (args->cmdType == CMD_PACK) {
+		if (args->cmdType == CMD_PACK || args->cmdType == CMD_PACK_BFE) {
 			/**
 			 * Target should be a package file.
 			 * To obtain the default path, append '.pac' to source path,

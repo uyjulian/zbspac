@@ -26,7 +26,11 @@ void init() {
 }
 
 bool processPackCmd(CmdArgs* args) {
-	return packPackage(argSourcePath(args), argTargetPath(args));
+	return packPackage(argSourcePath(args), argTargetPath(args), false);
+}
+
+bool processPackBfeCmd(CmdArgs* args) {
+	return packPackage(argSourcePath(args), argTargetPath(args), true);
 }
 
 bool processUnpackCmd(CmdArgs* args) {
@@ -92,6 +96,9 @@ int main(int argc, char** argv) {
 	switch (argCmdType(args)) {
 	case CMD_PACK:
 		result = processPackCmd(args);
+		break;
+	case CMD_PACK_BFE:
+		result = processPackBfeCmd(args);
 		break;
 	case CMD_UNPACK:
 		result = processUnpackCmd(args);

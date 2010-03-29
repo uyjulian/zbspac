@@ -17,6 +17,7 @@
 #include "Logger.h"
 #include "StringUtils.h"
 #include "FileSystem.h"
+#include "LzssCode.h"
 #include "HuffmanCode.h"
 #include "NexasPackage.h"
 
@@ -88,12 +89,12 @@ static NexasPackage* openPackage(const wchar_t* packagePath) {
 	return package;
 }
 
-static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar_t* sourceDir) {
+static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar_t* sourceDir, bool isBfeFormat) {
 	writeLog(LOG_VERBOSE, L"Generating package header......");
 	package->header = malloc(sizeof(Header));
 	memcpy(package->header->typeTag, "PAC", 3);
 	package->header->magicByte = 0;
-	package->header->variantTag = CONTENT_MAYBE_DEFLATE;
+	package->header->variantTag = isBfeFormat ? CONTENT_LZSS : CONTENT_MAYBE_DEFLATE;
 	package->header->entryCount = 0;
 
 	writeLog(LOG_VERBOSE, L"Moving into source directory......");
@@ -131,7 +132,7 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 	return true;
 }
 
-static bool recordAndWriteEntries(NexasPackage* package) {
+static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 	package->indexes = newByteArray(package->header->entryCount * sizeof(IndexEntry));
 	IndexEntry* indexes = (IndexEntry*)baData(package->indexes);
 
@@ -139,6 +140,20 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 
 	u32 i = 0;
 	u32 offset = 12;
+
+	if (isBfeFormat) {
+		/// This PAC Variant puts index first, but now we do not know
+		/// the index, so we reserve the space.
+		u32 len = baLength(package->indexes);
+		for (u32 i = 0; i < len; ++i) {
+			if (fputc('\0', package->file) == EOF) {
+				writeLog(LOG_QUIET, L"ERROR: Unable to reserve space for the index!");
+				return false;
+			}
+		}
+		offset += len;
+	}
+
 	struct _wfinddata_t foundFile;
 	intptr_t handle = _wfindfirst(L"*", &foundFile);
 	int status = 0;
@@ -173,8 +188,13 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 			fclose(infile);
 
 			byte* encodedData = NULL;
+			ByteArray* encodedArray = NULL;
 
-			if (shouldZip(foundFile.name)) {
+			if (isBfeFormat) {
+				encodedArray = lzssEncode(decodedData, indexes[i].decodedLen);
+				encodedData = baData(encodedArray);
+				indexes[i].encodedLen = baLength(encodedArray);
+			} else if (shouldZip(foundFile.name)) {
 				encodedData = malloc(indexes[i].decodedLen);
 				unsigned long len = indexes[i].encodedLen;
 				if (compress(encodedData, &len, decodedData, indexes[i].decodedLen) != Z_OK) {
@@ -194,13 +214,21 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 			if (fwrite(encodedData, 1, indexes[i].encodedLen, package->file) != indexes[i].encodedLen) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to write to the package!", i, foundFile.name);
 				encodingSwitchToNative();
-				if (encodedData != decodedData) free(encodedData);
+				if (encodedArray != NULL) {
+					deleteByteArray(encodedArray);
+				} else if (encodedData != decodedData) {
+					free(encodedData);
+				}
 				free(decodedData);
 				encodingSwitchToNative();
 				return false;
 			}
 
-			if (encodedData != decodedData) free(encodedData);
+			if (encodedArray != NULL) {
+				deleteByteArray(encodedArray);
+			} else if (encodedData != decodedData) {
+				free(encodedData);
+			}
 			free(decodedData);
 
 			writeLog(LOG_NORMAL, L"Packed: Entry %u: %s.", i, foundFile.name);
@@ -213,7 +241,20 @@ static bool recordAndWriteEntries(NexasPackage* package) {
 	return true;
 }
 
-static bool writeIndexes(NexasPackage* package) {
+static bool writeBfeIndex(NexasPackage* package) {
+	writeLog(LOG_VERBOSE, L"Writing plain text index.");
+	fseek(package->file, 12, SEEK_SET);
+	if (fwrite(baData(package->indexes), 1, baLength(package->indexes), package->file) != baLength(package->indexes)) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to write the indexes to the package!");
+		return false;
+	}
+	writeLog(LOG_VERBOSE, L"Written plain text index, length is: %u.", baLength(package->indexes));
+	return true;
+}
+
+static bool writeIndexes(NexasPackage* package, bool isBfeFormat) {
+	if (isBfeFormat)
+		return writeBfeIndex(package);
 	ByteArray* encodedIndexes =
 			huffmanEncode(L"Entry Indexes", baData(package->indexes), baLength(package->indexes));
 	if (encodedIndexes == NULL) {
@@ -241,14 +282,14 @@ static bool writeIndexes(NexasPackage* package) {
 	return true;
 }
 
-bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath) {
+bool packPackage(const wchar_t* sourceDir, const wchar_t* packagePath, bool isBfeFormat) {
 	writeLog(LOG_NORMAL, L"Packing files under directory: %s", sourceDir);
 	writeLog(LOG_NORMAL, L"To package: %s", packagePath);
 	NexasPackage* package = openPackage(packagePath);
 	if (!package) return false;
-	bool result = determineEntryCountAndWriteHeader(package, sourceDir)
-			&& recordAndWriteEntries(package)
-			&& writeIndexes(package);
+	bool result = determineEntryCountAndWriteHeader(package, sourceDir, isBfeFormat)
+			&& recordAndWriteEntries(package, isBfeFormat)
+			&& writeIndexes(package, isBfeFormat);
 	closePackage(package);
 	writeLog(LOG_NORMAL, (result) ? L"Packing Successful." : L"ERROR: Packing Failed.");
 	return result;

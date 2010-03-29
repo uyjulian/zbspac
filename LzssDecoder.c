@@ -1,6 +1,7 @@
 /**
  * @file		LzssDecoder.c
  * @brief		The implementation of the LZSS decoder (NeXaS flavor).
+ * 				This is actually a modified version of Mr. Haruhiko Okumura's original code.
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust
  * @date		2010.03
@@ -9,8 +10,9 @@
 #include "LzssCode.h"
 #include "Logger.h"
 
-#define N 4096
-#define F 18
+#define WINDOW_SIZE 4096
+#define MAX_MATCH_LENGTH 18
+#define THRESHOLD 2
 
 static inline byte getBit(byte data, byte offset) {
 	return (data >> (7 - offset)) & 1;
@@ -22,39 +24,35 @@ ByteArray* lzssDecode(const byte* encodedData, u32 encodedLen, u32 decodedLen) {
 	ByteArray* result = newByteArray(decodedLen);
 	byte* decodedData = baData(result);
 
-	byte text_buf[N + F - 1];
-	int i, j, k, r;
-	byte c = 0;
-	byte flags;
+	byte window[WINDOW_SIZE];
+	for (u32 i = 0; i < WINDOW_SIZE; i++) window[i] = '\0';
 
-	for (i = 0; i < N - F; i++)
-		text_buf[i] = '\0';
-	r = 4078;
-	flags = 0;
+	u32 winIndex = WINDOW_SIZE - MAX_MATCH_LENGTH;
+
 	for (;;) {
 		if (enIndex == encodedLen) break;
-		flags = encodedData[enIndex++];
+		byte flags = encodedData[enIndex++];
 		for (int curbit = 7; curbit >= 0; --curbit) {
 			if (getBit(flags, curbit)) {
 				if (enIndex == encodedLen || deIndex == decodedLen) goto out;
-				c = encodedData[enIndex++];
-				decodedData[deIndex++] = c;
-				text_buf[r++] = c;
-				r &= (N - 1);
+				byte data = encodedData[enIndex++];
+				decodedData[deIndex++] = data;
+				window[winIndex++] = data;
+				winIndex &= (WINDOW_SIZE - 1);
 			} else {
 				if (enIndex == encodedLen) goto out;
-				i = encodedData[enIndex++];
+				u32 position = encodedData[enIndex++];
 				if (enIndex == encodedLen) goto out;
-				j = encodedData[enIndex++];
+				u32 length = encodedData[enIndex++];
 
-				i |= (j >> 4) << 8;
-				j = (j & 0x0f) + 3;
-				for (k = 0; k < j; k++) {
+				position |= (length >> 4) << 8;
+				length = (length & 0x0f) + THRESHOLD + 1;
+				for (u32 i = 0; i < length; ++i) {
 					if (deIndex == decodedLen) goto out;
-					c = text_buf[(i + k) & (N - 1)];
-					decodedData[deIndex++] = c;
-					text_buf[r++] = c;
-					r &= (N - 1);
+					byte data = window[(position + i) & (WINDOW_SIZE - 1)];
+					decodedData[deIndex++] = data;
+					window[winIndex++] = data;
+					winIndex &= (WINDOW_SIZE - 1);
 				}
 			}
 		}
