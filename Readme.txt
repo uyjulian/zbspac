@@ -1,4 +1,13 @@
-﻿ZBSPAC README (or Q & A) [encoding: UTF-8]
+﻿ZBSPAC Update: Milestone 2
+March 29th, 2010
+
+Added (un)packing support for PAC Variant 1, the one used in Baldr Force EXE.
+Added support for script text extraction.
+Added experimental support for script text repacking. (There are still encoding issues.)
+
+--------------------------------------------
+
+ZBSPAC README (or Q & A) [encoding: UTF-8]
 
 February 20th, 2010 
 -------------------------

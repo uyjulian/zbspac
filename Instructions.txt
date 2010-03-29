@@ -9,10 +9,15 @@ Command syntax:
 
 You should specify the operation you want to perform:
 
-  pack   -- pack all files under a given directory into a package.
-  unpack -- unpack a package and place the contents in a directory.
-  help   -- display the help page. (which is almost identical to this file)
-  about  -- display some copyright information.
+  pack   	-- Packs all files under a directory into a Baldr Sky package.
+  pack-bfe	-- Like pack, but creates a package for Baldr Force EXE.
+  unpack 	-- Unpacks a package and place the contents in a directory.
+  
+  unpack-script	-- Extracts text segments from the specified bin file.
+  pack-script	-- (EXPERIMENTAL) Puts (maybe modified) text segments back.
+  
+  help   	-- Display the help page.
+  about  	-- Display some copyright information.
 
 You may define how noisy this program will be,
 just add 'quietly' or 'verbosely' before the operation.
@@ -26,7 +31,19 @@ If the source package name itself has no extension,
 a '_' suffix will be appended to avoid name collision.
 
 When packing a new package, subdirectories are ignored,
-and the file names should not exceed 63 bytes.
+and the file names should not exceed 63 bytes. (When
+interpreted as Shift-JIS)
+
+The script unpacking operation creates a plain text file
+in a custom format. (For facilitating translation.)
+
+The script packing operation is experimental,
+it merges the original bin file with new texts 
+and interprets the texts under the native code page.
+(Not Shift-JIS).
+
+This function still has some issues when doing character
+encoding conversion. 
 
 ----------------------------------------------------------------
 [The following are instructions in Simplified Chinese.]
@@ -37,11 +54,16 @@ Baldr Sky资源解包/封包器zbspac使用方法：
 
   zbspac [quietly|verbosely] <操作名称> 源路径 [目标路径]
   
-其中，操作名称为如下四个操作之一：
+其中，操作名称为如下几个操作之一：
 
-  pack：     将指定目录下的所有文件打包为PAC文件。
-  unpack：将指定的PAC文件解包到目标目录下。
-  help：     显示帮助信息（基本上就是此说明的英文版）。
+  pack：		将指定目录下的所有文件打包为PAC文件（Baldr Sky兼容）。
+  pack-bfe：	类似pack，但生成的文件用于Baldr Force EXE。
+  unpack：	将指定的PAC文件解包到目标目录下。
+  
+  unpack-script：	从二进制脚本文件中提取文本。
+  pack-script：		将文本封入二进制脚本中。
+  
+  help：     显示帮助信息。
   about:  显示作者和鸣谢信息。	
 
 在操作名称之前可以选择性加上quietly或者verbosely选项，这是用于控制
@@ -56,3 +78,9 @@ Baldr Sky资源解包/封包器zbspac使用方法：
 
 在进行打包操作时，源目录的子目录及其中所有的文件与目录都会被忽略。
 此外，请注意被打包文件的文件名长度不能超过63字节（Shift-JIS编码）。
+
+提取出来的文本采用了类似蓝山魔导的格式。
+
+封入时会将文本以本地代码页（而不是Shift-JIS）进行解释，
+并合并到目标bin文件中。
+目前封入功能还不完善，有部分文本无法转换，原因尚不明。

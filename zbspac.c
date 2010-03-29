@@ -1,6 +1,6 @@
 /**
  * @file		zbspac.c
- * @brief		PAC resource file extractor / packager for Baldr Sky Dive 1 & 2.
+ * @brief		PAC resource file extractor / packager for Baldr Sky & Force EXE.
  * 				This is the command line user interface module.
  * @copyright	Covered by 2-clause BSD, please refer to license.txt.
  * @author		CloudiDust
@@ -47,7 +47,7 @@ bool processUnpackScriptCmd(CmdArgs* args) {
 
 bool processAboutCmd(CmdArgs* args) {
 	writeOnlyOnLevel(LOG_QUIET, L"Shhhhhhh...... I should stay quiet......");
-	writeLog(LOG_NORMAL, L"zbspac: a resource (un)packer for Baldr Sky.");
+	writeLog(LOG_NORMAL, L"zbspac: a resource (un)packer for Baldr Sky / Baldr Force EXE.");
 	writeLog(LOG_NORMAL, L"Copyright 2010, CloudiDust.");
 	writeLog(LOG_NORMAL, L"Special thanks to 痴汉公贼(jzhang0) & asmodean.");
 	return true;
@@ -56,27 +56,12 @@ bool processAboutCmd(CmdArgs* args) {
 bool processHelpCmd(CmdArgs* args) {
 	writeOnlyOnLevel(LOG_QUIET, L"Shhhhhhh...... I should stay quiet......");
 	writeLog(LOG_NORMAL, L"Usage: zbspac [quietly|verbosely] <operation> source_path [target_path]");
-	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"  You should specify the operation you want to perform:");
-	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"    pack   -- pack all files under a given directory into a package.");
-	writeLog(LOG_NORMAL,L"    unpack -- unpack a package and place the contents in a directory.");
-	writeLog(LOG_NORMAL,L"    help   -- display this page. (Maybe)");
-	writeLog(LOG_NORMAL,L"    about  -- display some copyright information.");
-	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"  You may define how noisy this program will be,");
-	writeLog(LOG_NORMAL,L"  just add 'quietly' or 'verbosely' before the operation.");
-	writeLog(LOG_NORMAL,L"  When 'quietly', nothing will be displayed if everything");
-	writeLog(LOG_NORMAL,L"  goes on well, while 'verbosely' is mainly for debugging.");
-	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"  If no target is specified, a default path will be used.");
-	writeLog(LOG_NORMAL,L"  For packing, it is the source path with '.pac' suffix.");
-	writeLog(LOG_NORMAL,L"  For unpacking, it is the source path without extension.");
-	writeLog(LOG_NORMAL,L"  If the source package name itself has no extension,");
-	writeLog(LOG_NORMAL,L"  a '_' suffix will be appended to avoid name collision.");
-	writeLog(LOG_NORMAL,L"");
-	writeLog(LOG_NORMAL,L"  When packing a new package, subdirectories are ignored,");
-	writeLog(LOG_NORMAL,L"  and the file names should not exceed 63 bytes.");
+	writeLog(LOG_NORMAL, L"");
+	writeLog(LOG_NORMAL, L"Available operations are:");
+	writeLog(LOG_NORMAL, L"  pack, pack-bfe, unpack, pack-script, unpack-script, help, about");
+	writeLog(LOG_NORMAL, L"");
+	writeLog(LOG_NORMAL, L"Please refer to instructions.txt for detail.");
+
 	return true;
 }
 
