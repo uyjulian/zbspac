@@ -6,6 +6,15 @@
  * @date		2010.02
  */
 
+/**
+ * As of 2010.05.23, the output format is changed.
+ * I suspect that the game doesn't have pointers to individual script segments,
+ * rather it reads the text section sequentially, but the numbers of nulls
+ * between two segments are fixed, changing them would crash the game.
+ * So for the text section as a whole, now I will just store its beginning and
+ * end, then for each segment, I record the number of spaces following it.
+ */
+
 #include <stdio.h>
 #include <wchar.h>
 #include <ctype.h>
@@ -87,6 +96,11 @@ static bool validateHeaderAndGetTextOffset(ScriptFile* script) {
 
 static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 	FILE* outFile;
+	/**
+	 * Somehow opening the file in text mode results in a mess after
+	 * texts are written. So I use binary mode here.
+	 * And remember to output '\r\n' when writing newlines.
+	 */
 	if ((outFile = _wfopen(targetPath, L"wb")) == NULL) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to open the target file!");
 		return false;
@@ -114,12 +128,19 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 	u32 extractedCount = 0;
 	u32 ignoredCount = 0;
 
+
+	/**
+	 * Find and store the true start offset of the text section.
+	 */
+	while (data[index] == '\0') ++index;
+	fwprintf(outFile, L"TEXT-START: %u\r\n\r\n", index);
+
 	while (true) {
-		while (data[index] == '\0') ++index;
 		/**
 		 * After the text section there is a ending section that consists of
 		 * 0x00, 0xFF and maybe some bytes with small value, detect them and
-		 * finish the process.
+		 * store its starting offset, so the packer can perserve this section
+		 * in the recompiled script.
 		 *
 		 * The type cast is used because char is unsigned on this platform,
 		 * without the cast the following condition will be true for leading
@@ -129,50 +150,57 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		 * signed or not.
 		 */
 		byte temp = (byte)(data[index]);
-		if (temp < 32 || temp == 0xFF)
+		if (temp < 32 || temp == 0xFF) {
+			fwprintf(outFile, L"TEXT-END: %u\r\n\r\n", index);
 			break;
-
-		u32 rawLength = strlen(data + index);
-
-		/**
-		 * If the first byte of the text segment represents an capital English
-		 * letter or a digit, this segment is not regular text but special
-		 * effects or name of other script files (For storyline branching).
-		 * Ignore them, no need to translate.
-		 */
-		if (isdigit(data[index]) || isupper(data[index])) {
-			index += rawLength;
-			++ignoredCount;
-			continue;
 		}
+
 		/**
 		 * Extract the text segment and write it to the output file.
 		 * The output format is designed to ease translation.
 		 *
-		 * For safety, we should record the length of the text segment,
-		 * and then we can make sure we won't exceed the limit when
-		 * editing the texts.
+		 * Now there is no need to restrict the texts to fit in a
+		 * given length, but we need to know how many nulls follow.
 		 *
-		 * When writing wide characters, the LF (\n) is not converted
-		 * to CR LF (\r\n) automatically, as it would be when writing
-		 * multibyte chars, so we have to do it manually.
+		 * If the first byte of the text segment represents an capital English
+		 * letter or a digit, this segment is not regular text but special
+		 * effects or name of other script files (For storyline branching).
+		 * DO NOT ignore them, as they have their places in the script.
+		 * Mark them as 'DO NOT TRANSLATE'.
 		 */
+
+		bool shouldIgnore = isdigit(data[index]) || isupper(data[index]);
+
 		wchar_t* text = toWCString(data + index);
-		fwprintf(outFile, L"%u %u\r\n%s\r\n", index, rawLength, text);
+		u32 start = index;
+		u32 rawLength = strlen(data + index);
+		index += rawLength;
+
+		int followingNulls = 0;
+		while (data[index] == '\0') {
+			++followingNulls;
+			++index;
+		}
+
+		fwprintf(outFile, L"MSG %u START %u LEN %u NULL %u %s\n",
+				extractedCount + 1, start, rawLength, followingNulls,
+				shouldIgnore ? L"DO-NOT-TRANSLATE" : L"");
+		fwprintf(outFile, L"%s\r\n", text);
+
 		for (int i = 0; i < rawLength; ++i) {
 			fputwc('-', outFile);
 		}
 		fwprintf(outFile, L"\r\n%s\r\n\r\n", text);
 		free(text);
-		index += rawLength;
 		++extractedCount;
+		if (shouldIgnore) ++ignoredCount;
 	}
 
 	encodingSwitchToNative();
 	free(data);
 	fclose(outFile);
-	writeLog(LOG_NORMAL, L"%u strings extracted, %u ignored, %u total.",
-			extractedCount, ignoredCount, extractedCount + ignoredCount);
+	writeLog(LOG_NORMAL, L"%u strings translatable, %u not, %u total.",
+			extractedCount - ignoredCount, ignoredCount, extractedCount);
 	return true;
 }
 
