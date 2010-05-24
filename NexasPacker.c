@@ -136,8 +136,6 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 	package->indexes = newByteArray(package->header->entryCount * sizeof(IndexEntry));
 	IndexEntry* indexes = (IndexEntry*)baData(package->indexes);
 
-	encodingSwitchToShiftJIS();
-
 	u32 i = 0;
 	u32 offset = 12;
 
@@ -159,10 +157,9 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 	int status = 0;
 	while (status == 0) {
 		if ((foundFile.attrib & _A_SUBDIR) == 0) {
-			char* fname = toMBString(foundFile.name);
+			char* fname = toMBString(foundFile.name, L"japanese");
 			if (strlen(fname) >= 64) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, The file name is too long!", i, foundFile.name);
-				encodingSwitchToNative();
 				free(fname);
 				return false;
 			}
@@ -180,7 +177,6 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 
 			if (fread(decodedData, 1, indexes[i].decodedLen, infile) != indexes[i].decodedLen) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to read the file!", i, foundFile.name);
-				encodingSwitchToNative();
 				free(decodedData);
 				fclose(infile);
 				return false;
@@ -200,7 +196,6 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 				if (compress(encodedData, &len, decodedData, indexes[i].decodedLen) != Z_OK) {
 					free(encodedData);
 					free(decodedData);
-					encodingSwitchToNative();
 					return false;
 				}
 				indexes[i].encodedLen = len;
@@ -213,14 +208,12 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 
 			if (fwrite(encodedData, 1, indexes[i].encodedLen, package->file) != indexes[i].encodedLen) {
 				writeLog(LOG_QUIET, L"ERROR: Entry %u: %s, Unable to write to the package!", i, foundFile.name);
-				encodingSwitchToNative();
 				if (encodedArray != NULL) {
 					deleteByteArray(encodedArray);
 				} else if (encodedData != decodedData) {
 					free(encodedData);
 				}
 				free(decodedData);
-				encodingSwitchToNative();
 				return false;
 			}
 
@@ -237,7 +230,6 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 		status = _wfindnext(handle, &foundFile);
 	}
 	_findclose(handle);
-	encodingSwitchToNative();
 	return true;
 }
 

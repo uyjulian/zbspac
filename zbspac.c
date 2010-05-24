@@ -22,7 +22,6 @@ const wchar_t* USAGE_STRING = L"Usage: zbspac [quietly|verbosely] <operation> so
 
 void init() {
 	setLogLevel(LOG_NORMAL);
-	encodingSwitchToNative();
 }
 
 bool processPackCmd(CmdArgs* args) {

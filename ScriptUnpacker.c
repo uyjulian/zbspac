@@ -123,17 +123,22 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 	 * multibyte C strings.
 	 */
 
-	encodingSwitchToShiftJIS();
 	u32 index = script->textOffset;
 	u32 extractedCount = 0;
 	u32 ignoredCount = 0;
+	u32 start, end;
 
+	/**
+	 * Reserve some spaces for the tail part offset and the count
+	 */
+	for (u32 j = 0; j < 60; ++j) fputwc(L' ', outFile);
+	fputws(L"\r\n\r\n", outFile);
 
 	/**
 	 * Find and store the true start offset of the text section.
 	 */
 	while (data[index] == '\0') ++index;
-	fwprintf(outFile, L"TEXT-START: %u\r\n\r\n", index);
+	start = index;
 
 	while (true) {
 		/**
@@ -151,7 +156,7 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		 */
 		byte temp = (byte)(data[index]);
 		if (temp < 32 || temp == 0xFF) {
-			fwprintf(outFile, L"TEXT-END: %u\r\n\r\n", index);
+			end = index;
 			break;
 		}
 
@@ -166,13 +171,15 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		 * letter or a digit, this segment is not regular text but special
 		 * effects or name of other script files (For storyline branching).
 		 * DO NOT ignore them, as they have their places in the script.
-		 * Mark them as 'DO NOT TRANSLATE'.
+		 * Mark them as 'NOT-TEXT'.
 		 */
 
 		bool shouldIgnore = isdigit(data[index]) || isupper(data[index]);
 
-		wchar_t* text = toWCString(data + index);
-		u32 start = index;
+		wchar_t* text = toWCString(data + index, L"japanese");
+		u32 textLen = wcslen(text);
+
+		if (textLen > 4 && wcscmp(text + textLen - 4, L".bin") == 0) shouldIgnore = true;
 		u32 rawLength = strlen(data + index);
 		index += rawLength;
 
@@ -182,9 +189,9 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 			++index;
 		}
 
-		fwprintf(outFile, L"MSG %u START %u LEN %u NULL %u %s\n",
-				extractedCount + 1, start, rawLength, followingNulls,
-				shouldIgnore ? L"DO-NOT-TRANSLATE" : L"");
+		fwprintf(outFile, L"SEG %u NULL %u %s\r\n",
+				extractedCount, followingNulls,
+				shouldIgnore ? L"NOT-TEXT" : L"");
 		fwprintf(outFile, L"%s\r\n", text);
 
 		for (int i = 0; i < rawLength; ++i) {
@@ -196,7 +203,8 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		if (shouldIgnore) ++ignoredCount;
 	}
 
-	encodingSwitchToNative();
+	fseek(outFile, 2, SEEK_SET);
+	fwprintf(outFile, L"ZBSPAC-TRANSLATION japanese %u %u %u", start, end, extractedCount);
 	free(data);
 	fclose(outFile);
 	writeLog(LOG_NORMAL, L"%u strings translatable, %u not, %u total.",

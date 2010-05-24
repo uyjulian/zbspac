@@ -13,14 +13,6 @@
 
 #include "StringUtils.h"
 
-void encodingSwitchToNative() {
-	setlocale(LC_ALL, ".ACP");
-}
-
-void encodingSwitchToShiftJIS() {
-	setlocale(LC_ALL, "japanese");
-}
-
 char* newMBString(u32 length) {
 	return malloc(sizeof(char) * (length + 1));
 }
@@ -35,16 +27,18 @@ wchar_t* cloneWCString(const wchar_t* src) {
 	 return result;
 }
 
-wchar_t* toWCString(const char* mbs) {
+wchar_t* toWCString(const char* mbs, const wchar_t* locale) {
 	if (mbs == NULL) return NULL;
+	_wsetlocale(LC_ALL, locale);
 	u32 len = mbstowcs(NULL, mbs, CBUF_TRY_SIZE);
 	wchar_t* result = malloc(sizeof(wchar_t) * (len + 1));
 	mbstowcs(result, mbs, len + 1);
 	return result;
 }
 
-char* toMBString(const wchar_t* wcs) {
+char* toMBString(const wchar_t* wcs, const wchar_t* locale) {
 	if (wcs == NULL) return NULL;
+	_wsetlocale(LC_ALL, locale);
 	u32 len = wcstombs(NULL, wcs, CBUF_TRY_SIZE);
 	char* result = malloc(sizeof(char) * (len + 1));
 	wcstombs(result, wcs, len + 1);

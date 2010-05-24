@@ -1,4 +1,12 @@
-﻿ZBSPAC Update: Milestone 2
+﻿ZBSPAC Update: Milestone 3
+May 24th, 2010
+
+Add support for translated string segments of arbitrary lengths.
+Add support for custom output string encoding. (Not restricted to native encoding now.)
+
+--------------------------------------------
+
+ZBSPAC Update: Milestone 2
 March 29th, 2010
 
 Added (un)packing support for PAC Variant 1, the one used in Baldr Force EXE.

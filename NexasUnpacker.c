@@ -167,19 +167,14 @@ static void cleanupForEntry(wchar_t* name, wchar_t* path, ByteArray* encodedData
 		deleteByteArray(encodedData);
 	if (decodedData != NULL)
 		deleteByteArray(decodedData);
-	if (!success)
-		encodingSwitchToNative();
 }
 
 static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 	IndexEntry* indexes = (IndexEntry*)baData(package->indexes);
 	u32 count = package->header->entryCount;
 
-	/// The file names are stored in Shift-JIS.
-	encodingSwitchToShiftJIS();
-
 	for (u32 i = 0; i < count; ++i) {
-		wchar_t* wName = toWCString(indexes[i].name);
+		wchar_t* wName = toWCString(indexes[i].name, L"japanese");
 		writeLog(LOG_VERBOSE, L"Entry %u: %s, Offset: %u, ELen: %u, DLen: %u",
 				i, wName, indexes[i].offset, indexes[i].encodedLen,
 				indexes[i].decodedLen);
@@ -247,7 +242,6 @@ static bool extractFiles(NexasPackage* package, const wchar_t* targetDir) {
 		cleanupForEntry(wName, wPath, encodedData, decodedData, true);
 	}
 
-	encodingSwitchToNative();
 	return true;
 }
 

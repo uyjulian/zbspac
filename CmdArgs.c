@@ -99,7 +99,7 @@ static StateCode readSourcePath(CmdArgs* args, const char* str) {
 	if (str == NULL)
 		return APS_ERROR;
 
-	args->sourcePath = toWCString(str);
+	args->sourcePath = toWCString(str, L".ACP");
 	return APS_WAITING_TARGET;
 }
 
@@ -108,7 +108,7 @@ static StateCode readTargetPath(CmdArgs* args, const char* str) {
 		/// We will use the default target path.
 		return APS_FINISHED;
 
-	args->targetPath = toWCString(str);
+	args->targetPath = toWCString(str, L".ACP");
 	return APS_FINISHED;
 }
 

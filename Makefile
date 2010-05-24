@@ -36,5 +36,5 @@ $(BIN_DIST): $(EXE_TARGET) $(TXTS)
 .PHONY: clean
 	
 clean:
-	del $(OBJS) $(EXE_TARGET) $(SRC_DIST) $(BIN_DIST)
+	$(RM) $(OBJS) $(EXE_TARGET) $(SRC_DIST) $(BIN_DIST)
 	

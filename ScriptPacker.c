@@ -16,39 +16,93 @@
 #include "StringUtils.h"
 #include "ScriptFile.h"
 
+struct SegmentData {
+	wchar_t* text;
+	bool isText;
+	u32 nullCount;
+};
+
+typedef struct SegmentData SegmentData;
+
+static bool getNextMeaningfulLine(FILE* file, wchar_t* buf, u32 size) {
+	while (fgetws(buf, CBUF_TRY_SIZE, file) != NULL) {
+		u32 index = 0;
+		while (buf[index] == L' ' || buf[index] == L'\t') ++index;
+		if (buf[index] == L'\r' || buf[index] == L'#') continue;
+		return true;
+	}
+	return false;
+}
+
 bool doPack(const wchar_t* sourcePath, const wchar_t* targetPath) {
-	/// The translated script should be encoded in the native character set.
-	encodingSwitchToNative();
 
 	FILE* plainScript = _wfopen(sourcePath, L"rb");
-	FILE* compiledScript = _wfopen(targetPath, L"r+");
+	FILE* compiledScript = _wfopen(targetPath, L"rb");
 
 	if (!plainScript || !compiledScript) {
-		writeLog(LOG_QUIET, L"ERROR: Cannot open the source or the target files!");
+		writeLog(LOG_QUIET, L"ERROR: Unable to open needed files!");
 		fclose(plainScript);
 		fclose(compiledScript);
 		return false;
 	}
 
-	u32 offset = 0;
-	u32 maxLen = 0;
-	u32 index = 0;
+	/**
+	 * This file is opened only for existence checking.
+	 * Close it now, and reopen it when the source file is successfully read.
+	 */
+	fclose(compiledScript);
+
 	wchar_t buf[CBUF_TRY_SIZE];
+	wchar_t encoding[CBUF_TRY_SIZE];
+	u32 start, end, count;
 
 	/// Skip the BOM.
 	fseek(plainScript, 2, SEEK_SET);
 
-	while (true) {
-		/// This line includes offset and maximum length
-		if (fgetws(buf, CBUF_TRY_SIZE, plainScript) == NULL)
-			break;
+	if (!getNextMeaningfulLine(plainScript, buf, CBUF_TRY_SIZE)) {
+		writeLog(LOG_QUIET, L"ERROR: Script properties not found!");
+		fclose(plainScript);
+		return false;
+	}
 
-		if (swscanf(buf, L"%u %u", &offset, &maxLen) != 2) {
-			writeLog(LOG_QUIET, L"ERROR: Unable to read the offset and maximum length for Entry %u!", index);
+	if (swscanf(buf, L"ZBSPAC-TRANSLATION %s %u %u %u", encoding, &start, &end, &count) != 4) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to load script properties!");
+		fclose(plainScript);
+		return false;
+	}
+	writeLog(LOG_VERBOSE, L"Encoding: %s, Start: %u, End: %u, Count: %u", encoding, start, end, count);
+
+	/// Now the reading begins.
+	SegmentData* data = malloc (sizeof(SegmentData) * count);
+	memset(data, 0, sizeof(SegmentData) * count);
+
+	for (u32 i = 0; i < count; ++i) {
+		u32 serial, nullCount;
+
+		if (!getNextMeaningfulLine(plainScript, buf, CBUF_TRY_SIZE)) {
+			writeLog(LOG_QUIET, L"ERROR: Unable to locate the next data section!");
 			fclose(plainScript);
-			fclose(compiledScript);
-			return false;;
+			free(data);
+			return false;
 		}
+
+		if (swscanf(buf, L"SEG %u NULL %u", &serial, &nullCount) != 2) {
+			writeLog(LOG_QUIET, L"ERROR: Unable to read the serial and number of following nulls for Segment %u!", i);
+			fclose(plainScript);
+			free(data);
+			return false;
+		}
+
+		if (serial != i) {
+			writeLog(LOG_QUIET, L"ERROR: Segment %u's serial number is %u. They are not equal!", i, serial);
+			fclose(plainScript);
+			free(data);
+			return false;
+		}
+
+		data[i].isText = (wcsstr(buf, L"NOT-TEXT") == NULL);
+		data[i].nullCount = nullCount;
+
 		/// This line is the original text.
 		fgetws(buf, CBUF_TRY_SIZE, plainScript);
 		/// The separator.
@@ -56,69 +110,83 @@ bool doPack(const wchar_t* sourcePath, const wchar_t* targetPath) {
 
 		/// Then the altered text.
 		if (fgetws(buf, CBUF_TRY_SIZE, plainScript) == NULL) {
-			writeLog(LOG_QUIET, L"ERROR: Unable to read the next segment! \n  Entry: %u, Offset: %u, Maximum length: %u",
-								index, offset, maxLen);
+			writeLog(LOG_QUIET, L"ERROR: Unable to read Segment %u!", i);
 			fclose(plainScript);
-			fclose(compiledScript);
+			free(data);
 			return false;
 		}
-
 		/// Discard the CRLF.
 		buf[wcslen(buf) - 2] = L'\0';
 
-		char* mbText = toMBString(buf);
+		data[i].text = cloneWCString(buf);
 
-		i32 mbLen = strlen(mbText);
-		i32 paddingLen = maxLen - mbLen;
-		if (paddingLen < 0) {
-			writeLog(LOG_QUIET, L"ERROR: Segment Too Long! \n  Entry: %u, Offset: %u, Maximum: %u, Actual: %u, Value: %s",
-								index, offset, maxLen, mbLen, buf);
-			fclose(plainScript);
-			fclose(compiledScript);
-			free(mbText);
-			return false;
-		}
-
-		if (fseek(compiledScript, offset, SEEK_SET) != 0) {
-			writeLog(LOG_QUIET, L"ERROR: Unable to locate the injection point for next string segment! \n  Entry: %u, Offset: %u, Maximum: %u, Actual: %u, Value: %s",
-						index, offset, maxLen, mbLen, buf);
-			fclose(plainScript);
-			fclose(compiledScript);
-			free(mbText);
-			return false;
-		}
-
-
-		if (fwrite(mbText, 1, mbLen, compiledScript) != mbLen) {
-			writeLog(LOG_QUIET, L"ERROR: Cannot write the segment to the target file! \n  Entry: %u, Offset: %u, Maximum: %u, Actual: %u, Value: %s",
-				index, offset, maxLen, mbLen, buf);
-			fclose(plainScript);
-			fclose(compiledScript);
-			free(mbText);
-			return false;
-		}
-
-		/**
-		 * Padding with the null character will crash the game,
-		 * so we use whitespace instead.
-		 */
-		for (i32 i = 0; i < paddingLen; ++i) {
-			fwrite(" ", 1, 1, compiledScript);
-		}
-
-		writeLog(LOG_VERBOSE, L"Written: Entry: %u, Offset: %u, Maximum: %u, Actual: %u, Value: %s",
-			index, offset, maxLen, mbLen, buf);
-
-		/// Consume the blank line after each entry.
+		// Consume the blank line following.
 		fgetws(buf, CBUF_TRY_SIZE, plainScript);
+	}
+	fclose(plainScript);
 
-		++index;
+	// Then let's store the tail part of the binary script.
+	compiledScript = _wfopen(targetPath, L"rb+");
+	if (!plainScript || !compiledScript) {
+		writeLog(LOG_QUIET, L"ERROR: Cannot open the target file!");
+		fclose(compiledScript);
+		free(data);
+		return false;
+	}
+	fseek(compiledScript, -1, SEEK_END);
+	u32 tailLen = ftell(compiledScript) - end + 1;
+	byte* tailData = malloc(sizeof(byte) * tailLen);
+	fseek(compiledScript, end, SEEK_SET);
+	if (fread(tailData, sizeof(byte), tailLen, compiledScript) != tailLen) {
+		writeLog(LOG_QUIET, L"ERROR: Cannot read the tail part of the target file!");
+		fclose(compiledScript);
+		free(tailData);
+		return false;
+	}
+
+
+	// Now begin to write.
+	fseek(compiledScript, start, SEEK_SET);
+
+	for (u32 i = 0; i < count; ++i) {
+		char* mbText = data[i].isText
+				? toMBString(data[i].text, encoding)
+				: toMBString(data[i].text, L"japanese");
+
+		if (mbText == NULL) {
+			writeLog(LOG_QUIET, L"ERROR: Unable to convert Segment %u to the target encoding: %s", i, buf);
+			fclose(compiledScript);
+			free(tailData);
+			return false;
+		}
+
+		u32 mbLen = strlen(mbText);
+		if (fwrite(mbText, 1, mbLen, compiledScript) != mbLen) {
+			writeLog(LOG_QUIET, L"ERROR: Unable to write Segment %u to the target file : %s",
+				i, data[i].text);
+			fclose(compiledScript);
+			free(tailData);
+			free(mbText);
+			return false;
+		}
+
+		for (u32 j = 0; j < data[i].nullCount; ++j) {
+			fputc('\0', compiledScript);
+		}
 		free(mbText);
 	}
 
-	writeLog(LOG_NORMAL, L"%u string segments packed.", index);
-	fclose(plainScript);
+	// Write the original tail part back.
+	if (fwrite(tailData, sizeof(byte), tailLen, compiledScript) != tailLen) {
+		writeLog(LOG_QUIET, L"ERROR: Cannot write the tail part to the target file!");
+		fclose(compiledScript);
+		free(tailData);
+		return false;
+	}
+
+	writeLog(LOG_NORMAL, L"%u string segments packed.", count);
 	fclose(compiledScript);
+	free(tailData);
 	return true;
 }
 
