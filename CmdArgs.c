@@ -135,12 +135,12 @@ static void fillWithDefaultArgs(CmdArgs* args) {
 			 * To obtain the default path, append '.pac' to source path,
 			 */
 			args->targetPath = wcsAppend(args->sourcePath, L".pac");
-		} else if (args->cmdType == CMD_UNPACK_SCRIPT) {
+		} else if (args->cmdType == CMD_PACK_SCRIPT) {
 			/**
-			 * When unpacking script, target should be a txt file.
+			 * When packing script, target should be a 'bin' file.
 			 */
-			args->targetPath = wcsAppend(args->sourcePath, L".txt");
-		} else if (args->cmdType == CMD_UNPACK || args->cmdType == CMD_PACK_SCRIPT) {
+			args->targetPath = wcsAppend(args->sourcePath, L".bin");
+		} else if (args->cmdType == CMD_UNPACK || args->cmdType == CMD_UNPACK_SCRIPT) {
 			/**
 			 * To obtain the default path, remove the extension.
 			 * Be aware that the last dot may not be a indicator of extension,

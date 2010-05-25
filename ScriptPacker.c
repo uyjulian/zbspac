@@ -16,14 +16,6 @@
 #include "StringUtils.h"
 #include "ScriptFile.h"
 
-struct SegmentData {
-	wchar_t* text;
-	bool isText;
-	u32 nullCount;
-};
-
-typedef struct SegmentData SegmentData;
-
 static bool getNextMeaningfulLine(FILE* file, wchar_t* buf, u32 size) {
 	while (fgetws(buf, CBUF_TRY_SIZE, file) != NULL) {
 		u32 index = 0;
@@ -34,74 +26,87 @@ static bool getNextMeaningfulLine(FILE* file, wchar_t* buf, u32 size) {
 	return false;
 }
 
-bool doPack(const wchar_t* sourcePath, const wchar_t* targetPath) {
-
-	FILE* plainScript = _wfopen(sourcePath, L"rb");
-	FILE* compiledScript = _wfopen(targetPath, L"rb");
-
-	if (!plainScript || !compiledScript) {
-		writeLog(LOG_QUIET, L"ERROR: Unable to open needed files!");
-		fclose(plainScript);
-		fclose(compiledScript);
+static bool appendFile(FILE* targetFile, wchar_t* sourcePath) {
+	FILE* sourceFile = _wfopen(sourcePath, L"rb");
+	if (!sourceFile) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to open %s for reading!", sourcePath);
 		return false;
 	}
 
-	/**
-	 * This file is opened only for existence checking.
-	 * Close it now, and reopen it when the source file is successfully read.
-	 */
-	fclose(compiledScript);
+	fseek(sourceFile, 0, SEEK_END);
+	int length = ftell(sourceFile);
+	if (length < 0) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to determine the length of %s!", sourcePath);
+		fclose(sourceFile);
+		return false;
+	}
+
+	fseek(sourceFile, 0, SEEK_SET);
+	byte* data = malloc(sizeof(byte) * length);
+	if (fread(data, sizeof(byte), length, sourceFile) != length) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to read %s!", sourcePath);
+		fclose(sourceFile);
+		return false;
+	}
+	fclose(sourceFile);
+
+	if (fwrite(data, sizeof(byte), length, targetFile) != length) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to write to the target file!");
+		return false;
+	}
+	return true;
+}
+
+static bool writeTextSection(FILE* compiledScript, wchar_t* textPath) {
+	FILE* plainScript = _wfopen(textPath, L"rb");
+	if (!plainScript) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to open %s for reading!", textPath);
+		return false;
+	}
 
 	wchar_t buf[CBUF_TRY_SIZE];
 	wchar_t encoding[CBUF_TRY_SIZE];
-	u32 start, end, count;
+	u32 count = 0;
 
 	/// Skip the BOM.
 	fseek(plainScript, 2, SEEK_SET);
 
+	/// Get the encoding and segment count.
 	if (!getNextMeaningfulLine(plainScript, buf, CBUF_TRY_SIZE)) {
-		writeLog(LOG_QUIET, L"ERROR: Script properties not found!");
+		writeLog(LOG_QUIET, L"ERROR: script.txt: header not found!");
 		fclose(plainScript);
 		return false;
 	}
 
-	if (swscanf(buf, L"ZBSPAC-TRANSLATION %s %u %u %u", encoding, &start, &end, &count) != 4) {
-		writeLog(LOG_QUIET, L"ERROR: Unable to load script properties!");
+	if (swscanf(buf, L"ZBSPAC-TRANSLATION ENCODING %s COUNT %u", encoding, &count) != 2) {
+		writeLog(LOG_QUIET, L"ERROR: header is corrupt");
 		fclose(plainScript);
 		return false;
 	}
-	writeLog(LOG_VERBOSE, L"Encoding: %s, Start: %u, End: %u, Count: %u", encoding, start, end, count);
 
-	/// Now the reading begins.
-	SegmentData* data = malloc (sizeof(SegmentData) * count);
-	memset(data, 0, sizeof(SegmentData) * count);
+	writeLog(LOG_NORMAL, L"The script's encoding is %s, has %u strings.", encoding, count);
 
 	for (u32 i = 0; i < count; ++i) {
-		u32 serial, nullCount;
-
 		if (!getNextMeaningfulLine(plainScript, buf, CBUF_TRY_SIZE)) {
-			writeLog(LOG_QUIET, L"ERROR: Unable to locate the next data section!");
+			writeLog(LOG_QUIET, L"ERROR: Unable to read Segment %u!", i);
 			fclose(plainScript);
-			free(data);
 			return false;
 		}
 
+		u32 serial, nullCount;
 		if (swscanf(buf, L"SEG %u NULL %u", &serial, &nullCount) != 2) {
 			writeLog(LOG_QUIET, L"ERROR: Unable to read the serial and number of following nulls for Segment %u!", i);
 			fclose(plainScript);
-			free(data);
 			return false;
 		}
 
 		if (serial != i) {
 			writeLog(LOG_QUIET, L"ERROR: Segment %u's serial number is %u. They are not equal!", i, serial);
 			fclose(plainScript);
-			free(data);
 			return false;
 		}
 
-		data[i].isText = (wcsstr(buf, L"NOT-TEXT") == NULL);
-		data[i].nullCount = nullCount;
+		bool isText = (wcsstr(buf, L"NOT-TEXT") == NULL);
 
 		/// This line is the original text.
 		fgetws(buf, CBUF_TRY_SIZE, plainScript);
@@ -112,81 +117,73 @@ bool doPack(const wchar_t* sourcePath, const wchar_t* targetPath) {
 		if (fgetws(buf, CBUF_TRY_SIZE, plainScript) == NULL) {
 			writeLog(LOG_QUIET, L"ERROR: Unable to read Segment %u!", i);
 			fclose(plainScript);
-			free(data);
 			return false;
 		}
 		/// Discard the CRLF.
 		buf[wcslen(buf) - 2] = L'\0';
 
-		data[i].text = cloneWCString(buf);
-
-		// Consume the blank line following.
-		fgetws(buf, CBUF_TRY_SIZE, plainScript);
-	}
-	fclose(plainScript);
-
-	// Then let's store the tail part of the binary script.
-	compiledScript = _wfopen(targetPath, L"rb+");
-	if (!plainScript || !compiledScript) {
-		writeLog(LOG_QUIET, L"ERROR: Cannot open the target file!");
-		fclose(compiledScript);
-		free(data);
-		return false;
-	}
-	fseek(compiledScript, -1, SEEK_END);
-	u32 tailLen = ftell(compiledScript) - end + 1;
-	byte* tailData = malloc(sizeof(byte) * tailLen);
-	fseek(compiledScript, end, SEEK_SET);
-	if (fread(tailData, sizeof(byte), tailLen, compiledScript) != tailLen) {
-		writeLog(LOG_QUIET, L"ERROR: Cannot read the tail part of the target file!");
-		fclose(compiledScript);
-		free(tailData);
-		return false;
-	}
-
-
-	// Now begin to write.
-	fseek(compiledScript, start, SEEK_SET);
-
-	for (u32 i = 0; i < count; ++i) {
-		char* mbText = data[i].isText
-				? toMBString(data[i].text, encoding)
-				: toMBString(data[i].text, L"japanese");
+		char* mbText = isText
+				? toMBString(buf, encoding)
+				: toMBString(buf, L"japanese");
 
 		if (mbText == NULL) {
 			writeLog(LOG_QUIET, L"ERROR: Unable to convert Segment %u to the target encoding: %s", i, buf);
-			fclose(compiledScript);
-			free(tailData);
 			return false;
 		}
 
 		u32 mbLen = strlen(mbText);
 		if (fwrite(mbText, 1, mbLen, compiledScript) != mbLen) {
 			writeLog(LOG_QUIET, L"ERROR: Unable to write Segment %u to the target file : %s",
-				i, data[i].text);
-			fclose(compiledScript);
-			free(tailData);
+				i, buf);
 			free(mbText);
 			return false;
 		}
 
-		for (u32 j = 0; j < data[i].nullCount; ++j) {
+		for (u32 j = 0; j < nullCount; ++j) {
 			fputc('\0', compiledScript);
 		}
 		free(mbText);
 	}
+	fclose(plainScript);
+	return true;
+}
 
-	// Write the original tail part back.
-	if (fwrite(tailData, sizeof(byte), tailLen, compiledScript) != tailLen) {
-		writeLog(LOG_QUIET, L"ERROR: Cannot write the tail part to the target file!");
-		fclose(compiledScript);
-		free(tailData);
+static bool doPack(const wchar_t* sourcePath, const wchar_t* targetPath) {
+
+	wchar_t* headPath = wcsAppend(sourcePath, L"\\head.bin");
+	wchar_t* tailPath = wcsAppend(sourcePath, L"\\tail.bin");
+	wchar_t* textPath = wcsAppend(sourcePath, L"\\script.txt");
+
+	FILE* targetFile = _wfopen(targetPath, L"wb");
+
+	if (!targetFile) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to open the target file for writing!");
+		free(headPath); free(tailPath); free(textPath);
 		return false;
 	}
 
-	writeLog(LOG_NORMAL, L"%u string segments packed.", count);
-	fclose(compiledScript);
-	free(tailData);
+	/// Write the head section.
+	if (!appendFile(targetFile, headPath)) {
+		free(headPath); free(tailPath); free(textPath);
+		fclose(targetFile);
+		return false;
+	}
+
+	/// Write the text section.
+	if (!writeTextSection(targetFile, textPath)) {
+		free(headPath); free(tailPath); free(textPath);
+		fclose(targetFile);
+		return false;
+	}
+
+	/// Write the tail section.
+	if (!appendFile(targetFile, tailPath)) {
+		free(headPath); free(tailPath); free(textPath);
+		fclose(targetFile);
+		return false;
+	}
+
+	fclose(targetFile);
 	return true;
 }
 

@@ -7,6 +7,28 @@
  */
 
 /**
+ * As of 2010.05.25, the script is unpacked into a directory,
+ * just like a package would be.
+ * There are three files in the directory:
+ * head.bin : the data in the original binary script, before the text section
+ * tail.bin : the data after the text section
+ * script.txt : the text section, unpacked.
+ *
+ * This change has two advantages:
+ *
+ * 1. The original script packer needs an unmodified binary script file when
+ *    packing the translated strings back, but in reality the binary may
+ *    already be updated with some translations, and packing will produce
+ *    a corrupted bin file. Now that we have all the original data in our
+ *    hands, we are not afraid of the existing bin file being changed. In fact,
+ *    we now need no bin file at all, once we have extracted the texts.
+ *
+ * 2. The PAC package generator skips subdirectoies in the source dir, so now
+ *    the unpacked scripts will not be packed back into the package even if
+ *    they are in the source dir. And we like defaults, don't we? ;)
+ */
+
+/**
  * As of 2010.05.23, the output format is changed.
  * I suspect that the game doesn't have pointers to individual script segments,
  * rather it reads the text section sequentially, but the numbers of nulls
@@ -23,6 +45,7 @@
 
 #include "Logger.h"
 #include "StringUtils.h"
+#include "Filesystem.h"
 #include "ScriptFile.h"
 
 struct ScriptFile {
@@ -95,27 +118,69 @@ static bool validateHeaderAndGetTextOffset(ScriptFile* script) {
 }
 
 static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
-	FILE* outFile;
-	/**
-	 * Somehow opening the file in text mode results in a mess after
-	 * texts are written. So I use binary mode here.
-	 * And remember to output '\r\n' when writing newlines.
-	 */
-	if ((outFile = _wfopen(targetPath, L"wb")) == NULL) {
-		writeLog(LOG_QUIET, L"ERROR: Unable to open the target file!");
+
+	if (!fsEnsureDirectoryExists(targetPath)) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to open or create the target directory!");
 		return false;
 	}
 
-	/// The UTF16-LE BOM, UTF16-LE is the encoding used for wchar_t in Windows.
-	fputs("\xFF\xFE", outFile);
+	wchar_t* headPath = wcsAppend(targetPath, L"\\head.bin");
+	wchar_t* tailPath = wcsAppend(targetPath, L"\\tail.bin");
+	wchar_t* textPath = wcsAppend(targetPath, L"\\script.txt");
 
 	fseek(script->file, 0, SEEK_SET);
 	char* data = malloc(script->fileLength);
 	if (fread(data, 1, script->fileLength, script->file) != script->fileLength) {
 		writeLog(LOG_QUIET, L"ERROR: Unable to read text data from the script file!");
+		free(headPath); free(tailPath); free(textPath);
 		free(data);
 		return false;
 	}
+
+	/**
+	 * Put the head section into head.bin.
+	 * We need to know where the text truly starts.
+	 * (There may be some nulls before the text segments.)
+	 */
+	u32 index = script->textOffset;
+	while (data[index] == '\0') ++index;
+
+	FILE* headFile;
+	if ((headFile = _wfopen(headPath, L"wb")) == NULL) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to create head.bin!");
+		free(headPath); free(tailPath); free(textPath);
+		free(data);
+		return false;
+	}
+
+	if (fwrite(data, sizeof(byte), index, headFile) != index) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to write to head.bin!");
+		free(headPath); free(tailPath); free(textPath);
+		free(data);
+		fclose(headFile);
+		return false;
+	}
+	fclose(headFile);
+
+	/**
+	 * Now extract the texts.
+	 * Somehow opening the text file in text mode results in a mess after
+	 * texts are written. So I use binary mode here.
+	 * And remember to output '\r\n' when writing newlines.
+	 */
+
+	FILE* textFile;
+	if ((textFile = _wfopen(textPath, L"wb")) == NULL) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to create script.txt!");
+		free(headPath); free(tailPath); free(textPath);
+		free(data);
+		return false;
+	}
+
+	/// The UTF16-LE BOM, UTF16-LE is the encoding used for wchar_t in Windows.
+	fputs("\xFF\xFE", textFile);
+	/// Header
+	fwprintf(textFile, L"ZBSPAC-TRANSLATION ENCODING japanese COUNT      \r\n\r\n");
 
 	/**
 	 * Text segments are Shift-JIS encoded and separated (or more precisely,
@@ -123,22 +188,8 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 	 * multibyte C strings.
 	 */
 
-	u32 index = script->textOffset;
 	u32 extractedCount = 0;
-	u32 ignoredCount = 0;
-	u32 start, end;
-
-	/**
-	 * Reserve some spaces for the tail part offset and the count
-	 */
-	for (u32 j = 0; j < 60; ++j) fputwc(L' ', outFile);
-	fputws(L"\r\n\r\n", outFile);
-
-	/**
-	 * Find and store the true start offset of the text section.
-	 */
-	while (data[index] == '\0') ++index;
-	start = index;
+	u32 textCount = 0;
 
 	while (true) {
 		/**
@@ -156,7 +207,6 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		 */
 		byte temp = (byte)(data[index]);
 		if (temp < 32 || temp == 0xFF) {
-			end = index;
 			break;
 		}
 
@@ -167,54 +217,78 @@ static bool extractText(ScriptFile* script, const wchar_t* targetPath) {
 		 * Now there is no need to restrict the texts to fit in a
 		 * given length, but we need to know how many nulls follow.
 		 *
-		 * If the first byte of the text segment represents an capital English
-		 * letter or a digit, this segment is not regular text but special
-		 * effects or name of other script files (For storyline branching).
+		 * If the first byte of the text segment represents an English letter
+		 * or a digit, or this file's name ends in '.bin', then this segment is
+		 * not regular text but special effects or name of other script files
+		 * (For storyline branching).
 		 * DO NOT ignore them, as they have their places in the script.
 		 * Mark them as 'NOT-TEXT'.
 		 */
 
-		bool shouldIgnore = isdigit(data[index]) || isupper(data[index]);
+		bool notText = isdigit(data[index]) || isupper(data[index]);
 
 		wchar_t* text = toWCString(data + index, L"japanese");
 		u32 textLen = wcslen(text);
 
-		if (textLen > 4 && wcscmp(text + textLen - 4, L".bin") == 0) shouldIgnore = true;
+		if (textLen > 4 && wcscmp(text + textLen - 4, L".bin") == 0) notText = true;
 		u32 rawLength = strlen(data + index);
 		index += rawLength;
 
-		int followingNulls = 0;
+		u32 followingNulls = 0;
 		while (data[index] == '\0') {
 			++followingNulls;
 			++index;
 		}
 
-		fwprintf(outFile, L"SEG %u NULL %u %s\r\n",
+		fwprintf(textFile, L"SEG %u NULL %u %s\r\n",
 				extractedCount, followingNulls,
-				shouldIgnore ? L"NOT-TEXT" : L"");
-		fwprintf(outFile, L"%s\r\n", text);
+				notText ? L"NOT-TEXT" : L"");
+		fwprintf(textFile, L"%s\r\n", text);
 
 		for (int i = 0; i < rawLength; ++i) {
-			fputwc('-', outFile);
+			fputwc('-', textFile);
 		}
-		fwprintf(outFile, L"\r\n%s\r\n\r\n", text);
+		fwprintf(textFile, L"\r\n%s\r\n\r\n", text);
 		free(text);
 		++extractedCount;
-		if (shouldIgnore) ++ignoredCount;
+		if (!notText) ++textCount;
 	}
 
-	fseek(outFile, 2, SEEK_SET);
-	fwprintf(outFile, L"ZBSPAC-TRANSLATION japanese %u %u %u", start, end, extractedCount);
+	/// This position is in the header, just after "COUNT"
+	fseek(textFile, 88, SEEK_SET);
+	fwprintf(textFile, L"%5u", extractedCount);
+	fclose(textFile);
+
+	/// Now store the tail part.
+	FILE* tailFile;
+	if ((tailFile = _wfopen(tailPath, L"wb")) == NULL) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to open tail.bin!");
+		free(headPath); free(tailPath); free(textPath);
+		free(data);
+		return false;
+	}
+
+	u32 tailLen = script->fileLength - index;
+	if (fwrite(data + index, sizeof(byte), tailLen, tailFile) != tailLen) {
+		writeLog(LOG_QUIET, L"ERROR: Unable to write to tail.bin!");
+		free(headPath); free(tailPath); free(textPath);
+		free(data);
+		fclose(tailFile);
+		return false;
+	}
+	fclose(tailFile);
+
+	free(headPath); free(tailPath); free(textPath);
 	free(data);
-	fclose(outFile);
+
 	writeLog(LOG_NORMAL, L"%u strings translatable, %u not, %u total.",
-			extractedCount - ignoredCount, ignoredCount, extractedCount);
+			textCount, extractedCount - textCount, extractedCount);
 	return true;
 }
 
 bool unpackScript(const wchar_t* sourcePath, const wchar_t* targetPath) {
 	writeLog(LOG_NORMAL, L"Unpacking Script: %s", sourcePath);
-	writeLog(LOG_NORMAL, L"To File: %s", targetPath);
+	writeLog(LOG_NORMAL, L"To Directory: %s", targetPath);
 	ScriptFile* script = openScriptFile(sourcePath);
 	if (!script) return false;
 	bool result = validateHeaderAndGetTextOffset(script)

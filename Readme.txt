@@ -1,4 +1,12 @@
-﻿ZBSPAC Update: Milestone 3
+﻿ZBSPAC Update: Milestone 3.1
+May 25th, 2010
+
+Now the scripts are unpacked into a directory.
+When packing, the original binary scripts are no longer needed.
+
+--------------------------------------------
+
+ZBSPAC Update: Milestone 3
 May 24th, 2010
 
 Add support for translated string segments of arbitrary lengths.

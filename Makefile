@@ -1,6 +1,6 @@
 EXE_TARGET = zbspac.exe
 
-TXTS = License.txt Readme.txt Instructions.txt PackageFormat.txt
+TXTS = License.txt Readme.txt Instructions.txt PackageFormat.txt ScriptTxtFormat.txt
 PROJECT_FILE = Makefile .project .cproject
 SRC_DIST = zbspac-src.7z
 BIN_DIST = zbspac-bin.7z

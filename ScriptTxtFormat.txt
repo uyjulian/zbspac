@@ -1,0 +1,68 @@
+﻿[Scroll down for Simplified Chinese.]
+[简体中文说明在英文说明的后面哦！]
+
+Format of script.txt:
+
+The first line (header) of the file is like:
+
+ZBSPAC-TRANSLATION ENCODING japanese COUNT   812
+
+The 'japanese' is the encoding of the translated text when they are packed into
+a new binary script file. You can and should change it. (If your target
+language is English, then maybe you can ignore this. ;)
+
+zbspac accept the same locale strings accepted by C's setlocale function,
+and yes, this string is sent directly to a setlocale() call.
+
+If you are unfamiliar with something like "encoding", just put your language
+name here(in English, of course), like 'chinese', 'korean', and usually it
+will work.
+
+(By 'work', I mean the texts will be 'stored' correctly, not 'displayed'
+ correctly. For the game to display your texts, more steps should be taken.)
+
+The number after 'COUNT' (812 in this case) is the number of text segments
+extracted. DO NOT change this.
+
+The lines following the header are data entries for text segments.
+
+The format is as follows:
+
+SEG [segment serial number] NULL [number of nulls following this segment]
+The original text.
+------------------
+The translated text. (initially the same as original)
+
+The only part you should be changing is "The translated text." The length of
+this line is not restricted, but do put the translation in one single line.
+
+There are some control codes in the game scripts. Proceed with caution. But I
+don't think they are too hard to figure out, no? ;)
+
+-------------------------------------------------------------------------------
+[Simplified Chinese Here!]
+
+script.txt的格式：
+
+文件的首行（文件头）形似：
+
+ZBSPAC-TRANSLATION ENCODING japanese COUNT   812
+
+其中“japanese”是翻译后的文本在打包回二进制脚本时所用的编码，除非是翻译英文，
+否则这个字段几乎总是要改的，既然你看到这段了，那一般改成“chinese”就行了xD~
+
+注意这可不会自动让你的游戏显示中文哦~
+
+“COUNT”后面的数字是解包得到的文本段数，*不要*修改。
+
+而后就是很多个文本数据段了，格式为：
+
+SEG [序列号] NULL [本段文本后面的空字符数]
+原始文本
+------------------
+翻译后文本（最初和原始文本是相同的）
+
+唯一应该修改的就是“翻译后文本”，文本长度不限，但必须写在一行里面。
+
+游戏脚本中有一些控制字符，请不要乱改，不过，我觉得要理解这些符号并不很难，
+是吧？;)
