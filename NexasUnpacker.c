@@ -94,7 +94,7 @@ static bool validateHeader(NexasPackage* package) {
 	u32 vtag = package->header->variantTag;
 	writeLog(LOG_VERBOSE, L"File variant tag is %d.", vtag);
 
-	if (vtag != CONTENT_MAYBE_DEFLATE && vtag != CONTENT_LZSS) {
+	if (vtag != CONTENT_MAYBE_DEFLATE && vtag != CONTENT_LZSS && vtag != CONTENT_NOT_COMPRESSED) {
 		writeLog(LOG_QUIET, L"ERROR: This PAC variant is not supported yet.");
 		return false;
 	}
