@@ -94,7 +94,11 @@ static bool determineEntryCountAndWriteHeader(NexasPackage* package, const wchar
 	package->header = malloc(sizeof(Header));
 	memcpy(package->header->typeTag, "PAC", 3);
 	package->header->magicByte = 0;
+#if 0
 	package->header->variantTag = isBfeFormat ? CONTENT_LZSS : CONTENT_MAYBE_DEFLATE;
+#else
+	package->header->variantTag = CONTENT_NOT_COMPRESSED;
+#endif
 	package->header->entryCount = 0;
 
 	writeLog(LOG_VERBOSE, L"Moving into source directory......");
@@ -186,6 +190,7 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 			byte* encodedData = NULL;
 			ByteArray* encodedArray = NULL;
 
+#if 0
 			if (isBfeFormat) {
 				encodedArray = lzssEncode(decodedData, indexes[i].decodedLen);
 				encodedData = baData(encodedArray);
@@ -200,7 +205,10 @@ static bool recordAndWriteEntries(NexasPackage* package, bool isBfeFormat) {
 				}
 				indexes[i].encodedLen = len;
 				writeLog(LOG_VERBOSE, L"Entry %u is compressed: ELen: %u", i, len);
-			} else {
+			}
+			else
+#endif
+			{
 				encodedData = decodedData;
 			}
 			offset += indexes[i].encodedLen;
